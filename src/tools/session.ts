@@ -8,6 +8,7 @@ import type { HttpLogEntry } from "./http.js";
 
 const Check = z.object({
   criterion: z.string(),
+  coverage: z.string(),
   source: z.string(),
   result: z.enum(["bestått", "feilet", "ikke testet"]),
   expected: z.string(),
@@ -32,19 +33,22 @@ export const recordCheckTool: Anthropic.Beta.BetaTool = {
   description:
     "Registrer resultatet for ett akseptansekriterium. `criterion`: én kort linje i klarspråk om funksjonaliteten. " +
     "`source`: f.eks. 'issue #4732', 'PR-beskrivelse' eller 'utledet'. `actual`: én kort setning om hva svaret viste. " +
+    "`coverage`: hvordan kallene traff den ENDREDE kodestien (f.eks. 'limit=2 ga 4 sider, siste side full'). " +
+    "Kan du ikke forklare det, er result 'ikke testet'. " +
     "`calls`: kall-ID-ene (#) som beviser resultatet. Krav du ikke rakk: result 'ikke testet' og calls [].",
   strict: true,
   input_schema: {
     type: "object",
     properties: {
       criterion: { type: "string" },
+      coverage: { type: "string" },
       source: { type: "string" },
       result: { type: "string", enum: ["bestått", "feilet", "ikke testet"] },
       expected: { type: "string" },
       actual: { type: "string" },
       calls: { type: "array", items: { type: "integer" } },
     },
-    required: ["criterion", "source", "result", "expected", "actual", "calls"],
+    required: ["criterion", "coverage", "source", "result", "expected", "actual", "calls"],
     additionalProperties: false,
   },
 };

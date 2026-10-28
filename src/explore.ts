@@ -25,6 +25,8 @@ const titleFile = path.join(path.dirname(charterPath), "title.txt");
 const title = existsSync(titleFile) ? (await readFile(titleFile, "utf8")).trim() || undefined : undefined;
 const report = renderReport(result, { env: config.env, title });
 await writeFile(path.join("reports", name), report);
+// Alle detaljer (dekning per krav, hele HTTP-loggen) til artefakten - ikke i den korte rapporten.
+await writeFile(path.join("reports", "session.json"), JSON.stringify({ env: config.env, model: config.model, ...result }, null, 2));
 // Fast filnavn så CI (GitHub Action) kan poste rapporten som kommentar.
 await writeFile(path.join("reports", "latest.md"), report);
 

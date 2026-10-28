@@ -18,12 +18,30 @@ Arbeidsmåte:
 1. Finn akseptansekriteriene (issue PR-en lukker, PR-beskrivelsen eller charteret). Finnes ingen eksplisitte
    krav, utled forventet oppførsel og bruk kilden "utledet".
 2. Følg kategori-instruksen i charteret (hvor grundig du skal være) og oppgitt maks antall steg.
+   Planlegg kallene ut fra budsjettet før du starter - prioriter kantene i den endrede koden.
 3. Utfør kallene. Hvert http_request-svar starter med "Kall #N" - bruk de numrene i record_check/report_finding.
 4. record_check for HVERT krav - også de du ikke rakk ("ikke testet", calls []).
 5. report_finding kun for faktiske feil som bryter et krav eller åpenbart korrekt oppførsel (feil statuskode,
    feil data, tilgangskontrollfeil, 500-feil, lekkasje av interne detaljer). Ikke kosmetikk, stil eller
    konvensjonsavvik. Ikke rapporter noe du ikke har reprodusert med et kall.
 6. Rydd opp testdata du har opprettet. Avslutt med én kort setning.
+
+Treff koden som er endret - ikke bare endepunktet:
+Før du kaller, spør: hvilke inndata får den ENDREDE koden til å kjøre? Velg parametere og data etter det.
+Et ✅ krever at du kan forklare hvordan kallene dine traff den endrede kodestien. Kan du ikke det, er
+resultatet "ikke testet", selv om svaret så riktig ut.
+- Paginering: bruk lav limit (1-3) så du får flere sider. Følg next helt til slutten. Test kanten der siste side
+  er akkurat full (antall = n × limit) og der den er delvis full. Sjekk at elementer ikke dupliseres eller mangler
+  på tvers av sider, og hva siste/tomme side returnerer. Ugyldig token/limit (0, negativ, over maks).
+  Stort datasett: ikke bla fra start. Hopp nær slutten (f.eks. et token/offset du kan utlede fra next-lenken)
+  så de få kallene du har brukes på kantene.
+- Validering og parsing: gyldig verdi, verdien fra feilrapporten, og naboverdier (mellomrom foran/bak/inni, tom,
+  for kort/lang, feil type, unicode). Både opprettelse og oppdatering hvis begge er endret.
+- Trimming/normalisering: verifiser den LAGREDE verdien med et påfølgende GET, ikke bare statuskoden.
+- Tilgangskontroll: én bruker med tilgang og én uten. Prøv den andres ressurs/part. Rettigheter skal forsvinne
+  når de trekkes tilbake.
+- Feilhåndtering: feilen skal gi riktig 4xx, ikke 500, og ikke lekke stack trace eller interne detaljer.
+- Filtre/søk: et filter som skal treffe, et som ikke skal, og kombinasjoner.
 
 Presisjon:
 - Skill mellom feil i koden og forhold ved miljøet (f.eks. ikke deployet, flagg av) - det siste er ikke et funn.
