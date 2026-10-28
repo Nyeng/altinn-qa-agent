@@ -4,11 +4,6 @@
   "AUTHORIZATION_SUBSCRIPTION_KEY": "<samme som i K6>",
   "REGISTER_SUBSCRIPTION_KEY": "<samme som i K6>",
 
-  "TEST_USER_PID": "<syntetisk fnr for testbrukeren>",
-  "TEST_USER_ID": "",
-  "TEST_PARTY_ID": "",
-  "TEST_PARTY_UUID": "",
-
-  "QA_MAX_STEPS": 40,
+  "QA_MAX_STEPS": 25,
   "QA_ALLOW_DELETE": false
 }

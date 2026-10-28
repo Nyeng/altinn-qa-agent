@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { getToken, secretsToRedact } from "../auth.js";
+import { activeUser } from "./users.js";
 import { config } from "../config.js";
 import { assertAllowedHost } from "../environments.js";
 
@@ -22,7 +23,7 @@ export const httpRequestTool: Anthropic.Beta.BetaTool = {
   description:
     "Send en HTTP-forespørsel til et av API-ene du har tilgang til. `path` er relativ til API-ets base-URL " +
     '(f.eks. /accessmanagement/api/v1/enduser/authorizedparties for "platform"). ' +
-    "Autentisering og API-nøkler legges på automatisk - ikke send dem selv. " +
+    "Kallet gjøres som aktiv testbruker; autentisering og API-nøkler legges på automatisk - ikke send dem selv. " +
     "Returnerer status, utvalgte headere og body (avkortet ved behov).\n\nTilgjengelige API-er:\n" +
     apiList,
   input_schema: {
@@ -54,6 +55,7 @@ const HttpInput = z.object({
 });
 
 export type HttpLogEntry = {
+  user: string;
   api: string;
   method: string;
   path: string;
@@ -75,6 +77,9 @@ export async function runHttpRequest(
   if (input.method === "DELETE" && !config.target.allowDelete) {
     return { content: "DELETE er deaktivert for denne økten (QA_ALLOW_DELETE=false).", isError: true };
   }
+
+  const user = activeUser();
+  if (!user) return { content: "Ingen aktiv bruker. Hent en med pick_test_user først.", isError: true };
 
   const api = config.target.apis[input.api];
   if (!api) return { content: `Ukjent API "${input.api}". Tilgjengelige: ${apiNames.join(", ")}`, isError: true };
@@ -104,7 +109,7 @@ export async function runHttpRequest(
 
   const started = Date.now();
   try {
-    headers.set("authorization", `Bearer ${await getToken()}`);
+    headers.set("authorization", `Bearer ${await getToken(user)}`);
     for (const [name, value] of secretHeaders) headers.set(name, value);
 
     const res = await fetch(url, {
@@ -115,7 +120,7 @@ export async function runHttpRequest(
       signal: AbortSignal.timeout(30_000),
     });
     const text = await res.text();
-    log.push({ api: input.api, method: input.method, path: input.path, status: res.status, why: input.why, ms: Date.now() - started });
+    log.push({ user: user.alias, api: input.api, method: input.method, path: input.path, status: res.status, why: input.why, ms: Date.now() - started });
 
     const shownHeaders = ["content-type", "location", "www-authenticate"]
       .map((h) => [h, res.headers.get(h)] as const)
@@ -132,7 +137,7 @@ export async function runHttpRequest(
       isError: false,
     };
   } catch (err) {
-    log.push({ api: input.api, method: input.method, path: input.path, status: "feil", why: input.why, ms: Date.now() - started });
+    log.push({ user: user.alias, api: input.api, method: input.method, path: input.path, status: "feil", why: input.why, ms: Date.now() - started });
     return { content: redact(`Nettverksfeil: ${(err as Error).message}`), isError: true };
   }
 }

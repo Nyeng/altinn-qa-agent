@@ -1,7 +1,7 @@
-// Agenten skal kun kunne kjøres for Altinn/altinn-auth.
+// Agenten skal kun kunne kjøres for Altinn/altinn-auth (og fra eierens eget repo, Nyeng/altinn-qa-agent).
 // Dette er ett av flere lag (se README → "Låst til altinn-auth"): den egentlige sperren er at
 // secrets bare finnes i altinn-auth sitt GitHub Environment, og at verter er hardkodet i environments.ts.
-export const ALLOWED_REPOSITORIES = ["Altinn/altinn-auth"];
+export const ALLOWED_REPOSITORIES = ["Altinn/altinn-auth", "Nyeng/altinn-qa-agent"];
 
 export function assertAllowedRepository(): void {
   if (process.env.GITHUB_ACTIONS !== "true") return; // lokal kjøring

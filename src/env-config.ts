@@ -16,8 +16,8 @@ const EnvConfig = z
     REGISTER_SUBSCRIPTION_KEY: z.string().optional(), // brukes for platform /register/...
     AUTHORIZATION_SUBSCRIPTION_KEY: z.string().optional(), // brukes for platform /authorization/...
 
-    // Testbrukeren (sluttbruker). Token hentes fra Altinn test token generator (GetPersonalToken).
-    TEST_USER_PID: z.string(),
+    // Valgfri egen testbruker. Ellers velger Snoken brukere fra platform-validation-tests (testdata-catalog.ts).
+    TEST_USER_PID: z.string().optional(),
     TEST_USER_ID: z.string().optional(),
     TEST_PARTY_ID: z.string().optional(),
     TEST_PARTY_UUID: z.string().optional(),
@@ -36,7 +36,12 @@ export function loadEnvConfig(env: EnvName): EnvConfig {
   const varName = `QA_CONFIG_${env.toUpperCase()}`;
   const file = `configs/${env}.json`;
   const raw = process.env[varName] || (existsSync(file) ? readFileSync(file, "utf8") : undefined);
-  if (!raw) throw new Error(`Fant ingen konfig for ${env}: sett ${varName} eller lag ${file} (se configs/example.json)`);
+  if (!raw) {
+    // Alt er valgfritt: uten konfig brukes standard-URL-er og testbrukere fra platform-validation-tests,
+    // men kall som krever subscription key (register/authorization) vil feile.
+    console.warn(`ℹ️  Ingen ${varName} / ${file} - kjører uten subscription keys.`);
+    return EnvConfig.parse({});
+  }
 
   let json: unknown;
   try {

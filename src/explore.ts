@@ -24,4 +24,7 @@ await writeFile(path.join("reports", name), report);
 // Fast filnavn så CI (GitHub Action) kan poste rapporten som kommentar.
 await writeFile(path.join("reports", "latest.md"), report);
 
-console.log(`\n📄 Rapport: reports/${name}  ·  ${result.findings.length} funn, ${result.notes.length} notater`);
+console.log(
+  `\n📄 Rapport: reports/${name}  ·  ${result.findings.length} funn, ${result.notes.length} notater` +
+    `  ·  ca. $${result.costUsd.toFixed(2)}`,
+);

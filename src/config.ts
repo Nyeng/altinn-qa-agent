@@ -10,7 +10,7 @@ const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 type Effort = (typeof EFFORTS)[number];
 
 function effort(): Effort {
-  const value = process.env.QA_EFFORT ?? "medium";
+  const value = process.env.QA_EFFORT ?? "low";
   if (!(EFFORTS as readonly string[]).includes(value)) {
     throw new Error(`QA_EFFORT må være en av ${EFFORTS.join(", ")}`);
   }
@@ -67,9 +67,11 @@ for (const api of Object.values(apis)) {
 }
 
 export const config = {
-  model: process.env.QA_MODEL ?? "claude-opus-5-5",
+  model: process.env.QA_MODEL ?? "claude-sonnet-5-5",
   effort: effort(),
-  maxSteps: cfg.QA_MAX_STEPS ?? Number(process.env.QA_MAX_STEPS ?? 40),
+  maxSteps: cfg.QA_MAX_STEPS ?? Number(process.env.QA_MAX_STEPS ?? 25),
+  // Tak på tokens per økt (inn + cache + ut). Snoken får beskjed om å avslutte når det er nådd.
+  maxSessionTokens: Number(process.env.QA_MAX_SESSION_TOKENS ?? 400_000),
   env,
   target: {
     allowDelete: String(cfg.QA_ALLOW_DELETE) === "true",

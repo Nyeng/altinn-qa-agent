@@ -1,0 +1,109 @@
+# Snoken i eget repo. Start en økt på to måter:
+#
+#  1. Kommenter på en issue her:   /snoken at23 Utforsk delegering av tilgangspakker mellom to personer
+#  2. Actions → Snoken → Run workflow (velg miljø og skriv charter)
+#
+# Kun repo-eieren kan starte økter. Bruker repository secrets.
+
+name: Snoken
+
+on:
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      env:
+        description: Miljø
+        type: choice
+        options: [at23, at22, tt02]
+        default: at23
+      charter:
+        description: Charter (hva Snoken skal utforske)
+        type: string
+        required: false
+      model:
+        description: Modell
+        type: choice
+        options: [claude-sonnet-5-5, claude-opus-5-5]
+        default: claude-sonnet-5-5
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  explore:
+    if: >-
+      github.repository == 'Nyeng/altinn-qa-agent' && (
+        github.event_name == 'workflow_dispatch' ||
+        (contains(github.event.comment.body, '/snoken') && github.event.comment.author_association == 'OWNER')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: snoken-${{ github.event.issue.number || github.run_id }}
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      NUMBER: ${{ github.event.issue.number }}
+      # Brukerinput sendes som miljøvariabler - aldri interpolert direkte i run-skript.
+      COMMENT_BODY: >-
+        ${{ github.event_name == 'workflow_dispatch'
+            && format('/snoken {0} {1}', inputs.env, inputs.charter)
+            || github.event.comment.body }}
+      IS_PR: ${{ github.event.issue.pull_request != null }}
+      QA_MODEL: ${{ inputs.model || 'claude-sonnet-5-5' }}
+    steps:
+      - name: Kvitter med 👀
+        if: github.event_name == 'issue_comment'
+        run: gh api "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" -f content=eyes
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Bygg charter
+        id: charter
+        run: node scripts/charter-from-comment.mjs
+
+      - name: Snoken snoker
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TOKEN_GENERATOR_USERNAME: ${{ secrets.TOKEN_GENERATOR_USERNAME }}
+          TOKEN_GENERATOR_PASSWORD: ${{ secrets.TOKEN_GENERATOR_PASSWORD }}
+          QA_CONFIG_AT22: ${{ secrets.QA_CONFIG_AT22 }}
+          QA_CONFIG_AT23: ${{ secrets.QA_CONFIG_AT23 }}
+          QA_CONFIG_TT02: ${{ secrets.QA_CONFIG_TT02 }}
+        run: npx tsx src/explore.ts --env=${{ steps.charter.outputs.env }} reports/charter.md
+
+      - name: Publiser rapporten
+        if: success()
+        run: |
+          {
+            echo "### 🕵️ Snoken har snoket i \`${{ steps.charter.outputs.env }}\`"
+            echo
+            head -c 60000 reports/latest.md
+            echo
+            echo "<sub>[Kjøringen](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})</sub>"
+          } > comment.md
+          cat comment.md >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$NUMBER" ]; then
+            gh issue comment "$NUMBER" --repo "${{ github.repository }}" --body-file comment.md
+          fi
+
+      - name: Si fra om feil
+        if: failure() && github.event_name == 'issue_comment'
+        run: >-
+          gh issue comment "$NUMBER" --repo "${{ github.repository }}"
+          --body "⚠️ Snoken snublet. Se [kjøringen](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: snoken-rapport-${{ github.run_id }}
+          path: reports/

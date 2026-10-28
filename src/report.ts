@@ -14,17 +14,19 @@ export function renderReport(charter: string, result: SessionResult, meta: { mod
   );
   const notes = result.notes.filter((n) => n.kind !== "pirk").map((n) => `- **${n.kind}:** ${n.text}`);
   const nitpicks = result.notes.filter((n) => n.kind === "pirk").map((n) => `- ${n.text}`);
-  const http = result.httpLog.map((h) => `| ${h.api} | ${h.method} | \`${h.path}\` | ${h.status} | ${h.ms} | ${h.why} |`);
+  const http = result.httpLog.map((h) => `| ${h.user} | ${h.api} | ${h.method} | \`${h.path}\` | ${h.status} | ${h.ms} | ${h.why} |`);
 
   return [
     `# Testøkt (${meta.env}) ${meta.started.toISOString().slice(0, 16).replace("T", " ")}`,
     `Modell: \`${meta.model}\` · Verktøykall: ${result.steps} · Stopp: ${result.stopReason} · ` +
-      `Tokens inn/ut/cache: ${result.usage.input}/${result.usage.output}/${result.usage.cacheRead}\n`,
+      `Tokens inn/ut/cache lest/cache skrevet: ${result.usage.input}/${result.usage.output}/${result.usage.cacheRead}/${result.usage.cacheWrite} · ` +
+      `Estimert pris: ${Number.isNaN(result.costUsd) ? "ukjent modell" : `$${result.costUsd.toFixed(2)}`}\n`,
     `## Charter\n\n${charter.trim()}\n`,
+    section("Testbrukere", result.users.map((u) => `- ${u}`)),
     `## Oppsummering\n\n${result.summary || "_Ingen oppsummering._"}\n`,
     section(`Funn (${result.findings.length})`, findings),
     section("Notater", notes),
     section(`🤓 Snokens pirkeliste (${nitpicks.length})`, nitpicks),
-    section("HTTP-logg", http.length ? ["| API | Metode | Sti | Status | ms | Hvorfor |", "|---|---|---|---|---|---|", ...http] : []),
+    section("HTTP-logg", http.length ? ["| Bruker | API | Metode | Sti | Status | ms | Hvorfor |", "|---|---|---|---|---|---|---|", ...http] : []),
   ].join("\n");
 }

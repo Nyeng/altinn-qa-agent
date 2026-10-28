@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { config } from "./config.js";
+import { estimateCostUsd, type Usage } from "./pricing.js";
 import { systemPrompt } from "./prompts.js";
+import { addConfiguredUser, describeUser, knownUsers } from "./testusers.js";
 import { httpRequestTool, runHttpRequest, type HttpLogEntry } from "./tools/http.js";
 import {
   recordNoteTool,
@@ -10,6 +12,7 @@ import {
   type SessionFinding,
   type SessionNote,
 } from "./tools/session.js";
+import { pickTestUserTool, runPickTestUser, runSwitchUser, setActiveUser, switchUserTool } from "./tools/users.js";
 
 // Manuell agentløkke - bevisst skrevet for hånd (ikke tool runner) for å lære
 // mekanikken eksamen tester: stop_reason, tool_use/tool_result og meldingshistorikk.
@@ -19,26 +22,34 @@ export type SessionResult = {
   notes: SessionNote[];
   findings: SessionFinding[];
   httpLog: HttpLogEntry[];
+  users: string[];
   steps: number;
   stopReason: string;
-  usage: { input: number; output: number; cacheRead: number };
+  usage: Usage;
+  costUsd: number;
 };
 
 const client = new Anthropic();
-const tools = [httpRequestTool, recordNoteTool, reportFindingTool];
+const tools = [pickTestUserTool, switchUserTool, httpRequestTool, recordNoteTool, reportFindingTool];
 
 export async function runSession(charter: string): Promise<SessionResult> {
   const notes: SessionNote[] = [];
   const findings: SessionFinding[] = [];
   const httpLog: HttpLogEntry[] = [];
-  const usage = { input: 0, output: 0, cacheRead: 0 };
+  const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   let steps = 0;
   let wrapUpRequested = false;
   let summary = "";
   let stopReason = "";
 
+  const configured = addConfiguredUser();
+  if (configured) setActiveUser(configured);
+  const intro = configured
+    ? `Aktiv bruker fra start: ${describeUser(configured)}`
+    : "Ingen aktiv bruker ennå - hent en med pick_test_user ut fra charteret.";
+
   const messages: Anthropic.Beta.BetaMessageParam[] = [
-    { role: "user", content: `Charter for denne økten:\n\n${charter}` },
+    { role: "user", content: `Charter for denne økten:\n\n${charter}\n\n${intro}` },
   ];
 
   while (true) {
@@ -59,6 +70,7 @@ export async function runSession(charter: string): Promise<SessionResult> {
     usage.input += response.usage.input_tokens;
     usage.output += response.usage.output_tokens;
     usage.cacheRead += response.usage.cache_read_input_tokens ?? 0;
+    usage.cacheWrite += response.usage.cache_creation_input_tokens ?? 0;
     stopReason = response.stop_reason ?? "ukjent";
 
     // Hele content (inkl. thinking-blokker) må sendes tilbake uendret.
@@ -67,7 +79,7 @@ export async function runSession(charter: string): Promise<SessionResult> {
     for (const block of response.content) {
       if (block.type === "text" && block.text.trim()) {
         summary = block.text;
-        console.log(`\n🤖 ${block.text}`);
+        console.log(`\n🕵️ ${block.text}`);
       }
     }
 
@@ -97,17 +109,34 @@ export async function runSession(charter: string): Promise<SessionResult> {
       });
     }
 
-    if (steps >= config.maxSteps) {
+    const tokensUsed = usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
+    const reason =
+      steps >= config.maxSteps
+        ? `maks ${config.maxSteps} verktøykall`
+        : tokensUsed >= config.maxSessionTokens
+          ? `tokentaket på ${config.maxSessionTokens.toLocaleString("nb-NO")}`
+          : undefined;
+    if (reason) {
       wrapUpRequested = true;
       results.push({
         type: "text",
-        text: "Tidsboksen er brukt opp. Ikke gjør flere verktøykall - skriv oppsummeringen nå.",
+        text: `Tidsboksen er brukt opp (${reason}). Ikke gjør flere verktøykall - skriv oppsummeringen nå.`,
       });
     }
     messages.push({ role: "user", content: results });
   }
 
-  return { summary, notes, findings, httpLog, steps, stopReason, usage };
+  return {
+    summary,
+    notes,
+    findings,
+    httpLog,
+    users: knownUsers().map(describeUser),
+    steps,
+    stopReason,
+    usage,
+    costUsd: estimateCostUsd(config.model, usage),
+  };
 }
 
 async function executeTool(
@@ -115,6 +144,10 @@ async function executeTool(
   state: { notes: SessionNote[]; findings: SessionFinding[]; httpLog: HttpLogEntry[] },
 ): Promise<{ content: string; isError: boolean }> {
   switch (use.name) {
+    case "pick_test_user":
+      return runPickTestUser(use.input);
+    case "switch_user":
+      return runSwitchUser(use.input);
     case "http_request":
       return runHttpRequest(use.input, state.httpLog);
     case "record_note":
@@ -130,9 +163,13 @@ function logToolCall(use: Anthropic.Beta.BetaToolUseBlock, isError: boolean) {
   const input = use.input as Record<string, unknown>;
   const label =
     use.name === "http_request"
-      ? `${input.method} ${input.path}  — ${input.why}`
+      ? `${input.api} ${input.method} ${input.path}  — ${input.why}`
       : use.name === "report_finding"
         ? `🐞 ${input.title}`
-        : `📝 [${input.kind}] ${input.text}`;
+        : use.name === "pick_test_user"
+          ? `👤 ny bruker fra ${input.category}`
+          : use.name === "switch_user"
+            ? `👤 bytter til ${input.alias}`
+            : `📝 [${input.kind}] ${input.text}`;
   console.log(`${isError ? "⚠️ " : "→ "} ${label}`);
 }
