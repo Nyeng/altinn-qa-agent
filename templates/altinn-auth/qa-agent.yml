@@ -1,13 +1,13 @@
-# Kopieres til Altinn/altinn-auth: .github/workflows/qa-agent.yml
+# Kopieres til Altinn/altinn-auth: .github/workflows/snoken.yml
 #
 # Start en utforskende testøkt ved å kommentere på en issue eller PR i altinn-auth:
 #
-#   /qa-agent at23 Utforsk delegering av tilgangspakker til en annen person
+#   /snoken at23 Utforsk delegering av tilgangspakker til en annen person
 #
 # Miljø: at22 | at23 | tt02 (standard at23). Resten av kommentaren blir charteret.
 # På en PR legges diffen ved som kontekst.
 
-name: QA-agent
+name: Snoken (QA-agent)
 
 on:
   issue_comment:
@@ -23,7 +23,7 @@ jobs:
     # Lås 1: kun dette repoet. Lås 2: kun org-medlemmer (secrets og API-kreditt).
     if: >-
       github.repository == 'Altinn/altinn-auth' &&
-      contains(github.event.comment.body, '/qa-agent') &&
+      contains(github.event.comment.body, '/snoken') &&
       contains(fromJSON('["OWNER","MEMBER"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
     # Lås 3: alle secrets ligger i dette Environment-et (kun main, ev. med påkrevde godkjennere).
@@ -81,7 +81,7 @@ jobs:
         working-directory: qa-agent
         run: |
           {
-            echo "### 🔎 QA-agent: økt i \`${{ steps.charter.outputs.env }}\` ferdig"
+            echo "### 🕵️ Snoken har snoket i \`${{ steps.charter.outputs.env }}\` ferdig"
             echo
             head -c 60000 reports/latest.md
             echo
@@ -93,7 +93,7 @@ jobs:
         if: failure()
         run: >-
           gh issue comment "$NUMBER" --repo "${{ github.repository }}"
-          --body "⚠️ QA-agenten feilet. Se [kjøringen](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
+          --body "⚠️ Snoken snublet. Se [kjøringen](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
 
       - uses: actions/upload-artifact@v4
         if: always()
