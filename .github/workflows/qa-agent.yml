@@ -1,0 +1,91 @@
+# Start en utforskende testøkt ved å kommentere på en issue eller PR:
+#
+#   @qa-agent at22 Utforsk innsending av skjema med ugyldige datoer
+#
+# Miljø: at22 | at23 | tt02 (standard at22). Resten av kommentaren blir charteret.
+# På en PR legges diffen ved som kontekst, så agenten kan fokusere på det som er endret.
+
+name: QA-agent
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  explore:
+    # Kun personer med skrivetilgang kan starte økter (de bruker secrets og koster penger).
+    if: >-
+      contains(github.event.comment.body, '@qa-agent') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: qa-agent-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      NUMBER: ${{ github.event.issue.number }}
+      # Kommentaren sendes som miljøvariabel - aldri interpoler brukerinput direkte i run-skript.
+      COMMENT_BODY: ${{ github.event.comment.body }}
+      IS_PR: ${{ github.event.issue.pull_request != null }}
+    steps:
+      - name: Kvitter med 👀
+        run: gh api "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" -f content=eyes
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Bygg charter fra kommentaren
+        id: charter
+        run: node scripts/charter-from-comment.mjs
+
+      - name: Kjør testøkt
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ALTINN_ORG: ${{ vars.ALTINN_ORG }}
+          ALTINN_APP: ${{ vars.ALTINN_APP }}
+          QA_MAX_STEPS: ${{ vars.QA_MAX_STEPS || '40' }}
+          TOKEN_AT22: ${{ secrets.TOKEN_AT22 }}
+          TOKEN_AT23: ${{ secrets.TOKEN_AT23 }}
+          TOKEN_TT02: ${{ secrets.TOKEN_TT02 }}
+          TOKEN_GENERATOR_USERNAME: ${{ secrets.TOKEN_GENERATOR_USERNAME }}
+          TOKEN_GENERATOR_PASSWORD: ${{ secrets.TOKEN_GENERATOR_PASSWORD }}
+          TEST_USER_ID: ${{ secrets.TEST_USER_ID }}
+          TEST_PARTY_ID: ${{ secrets.TEST_PARTY_ID }}
+          TEST_USER_PID: ${{ secrets.TEST_USER_PID }}
+        run: npx tsx src/explore.ts --env=${{ steps.charter.outputs.env }} reports/charter.md
+
+      - name: Svar med rapporten
+        if: success()
+        run: |
+          {
+            echo "### 🔎 QA-agent: økt i \`${{ steps.charter.outputs.env }}\` ferdig"
+            echo
+            head -c 60000 reports/latest.md
+            echo
+            echo "<sub>[Full logg og rapport](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})</sub>"
+          } > comment.md
+          gh issue comment "$NUMBER" --repo "${{ github.repository }}" --body-file comment.md
+
+      - name: Si fra om feil
+        if: failure()
+        run: >-
+          gh issue comment "$NUMBER" --repo "${{ github.repository }}"
+          --body "⚠️ QA-agenten feilet. Se [kjøringen](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-rapport-${{ github.run_id }}
+          path: reports/

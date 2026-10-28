@@ -19,6 +19,9 @@ const result = await runSession(charter);
 
 const name = `${started.toISOString().slice(0, 16).replace(/[:T]/g, "-")}-${config.env}-${path.basename(charterPath, ".md")}.md`;
 await mkdir("reports", { recursive: true });
-await writeFile(path.join("reports", name), renderReport(charter, result, { model: config.model, env: config.env, started }));
+const report = renderReport(charter, result, { model: config.model, env: config.env, started });
+await writeFile(path.join("reports", name), report);
+// Fast filnavn så CI (GitHub Action) kan poste rapporten som kommentar.
+await writeFile(path.join("reports", "latest.md"), report);
 
 console.log(`\n📄 Rapport: reports/${name}  ·  ${result.findings.length} funn, ${result.notes.length} notater`);

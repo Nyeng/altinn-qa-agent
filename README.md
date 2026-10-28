@@ -29,6 +29,22 @@ npm run explore -- charters/01-instans-og-data.md   # local (app-localtest)
 Token per miljø: `TOKEN_AT22` / `TOKEN_AT23` / `TOKEN_TT02`, ellers hentes det fra Altinn test token generator
 (`TOKEN_GENERATOR_*` + testbruker-ID-er). **Produksjon (altinn.no utenom tt02) blokkeres i koden.**
 
+## Start fra GitHub: `@qa-agent`
+
+Kommenter på en issue eller PR:
+
+```
+@qa-agent at22 Utforsk innsending av skjema med ugyldige datoer
+```
+
+Workflowen (`.github/workflows/qa-agent.yml`) reagerer med 👀, kjører økten og svarer med rapporten.
+Miljø er `at22` (standard), `at23` eller `tt02`; resten av kommentaren er charteret. På en PR legges diffen ved.
+Kun OWNER/MEMBER/COLLABORATOR kan starte økter.
+
+Oppsett i repoet (Settings → Secrets and variables → Actions):
+- **Secrets:** `ANTHROPIC_API_KEY`, `TOKEN_AT22`, `TOKEN_AT23`, `TOKEN_TT02` (eller `TOKEN_GENERATOR_*` + `TEST_*`)
+- **Variables:** `ALTINN_ORG`, `ALTINN_APP`, ev. `QA_MAX_STEPS`
+
 ## Sikkerhet
 
 - Agenten får bare snakke med appens vert i valgt miljø (håndheves i kode, ikke i prompt). Prod er sperret.
