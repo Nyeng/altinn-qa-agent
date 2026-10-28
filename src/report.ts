@@ -13,7 +13,7 @@ export function renderReport(charter: string, result: SessionResult, meta: { mod
       `**Bevis**\n\n\`\`\`\n${f.evidence}\n\`\`\`\n`,
   );
   const notes = result.notes.map((n) => `- **${n.kind}:** ${n.text}`);
-  const http = result.httpLog.map((h) => `| ${h.method} | \`${h.path}\` | ${h.status} | ${h.ms} | ${h.why} |`);
+  const http = result.httpLog.map((h) => `| ${h.api} | ${h.method} | \`${h.path}\` | ${h.status} | ${h.ms} | ${h.why} |`);
 
   return [
     `# Testøkt (${meta.env}) ${meta.started.toISOString().slice(0, 16).replace("T", " ")}`,
@@ -23,6 +23,6 @@ export function renderReport(charter: string, result: SessionResult, meta: { mod
     `## Oppsummering\n\n${result.summary || "_Ingen oppsummering._"}\n`,
     section(`Funn (${result.findings.length})`, findings),
     section("Notater", notes),
-    section("HTTP-logg", http.length ? ["| Metode | Sti | Status | ms | Hvorfor |", "|---|---|---|---|---|", ...http] : []),
+    section("HTTP-logg", http.length ? ["| API | Metode | Sti | Status | ms | Hvorfor |", "|---|---|---|---|---|---|", ...http] : []),
   ].join("\n");
 }

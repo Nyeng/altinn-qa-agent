@@ -2,3 +2,5 @@ node_modules/
 .env
 reports/*
 !reports/.gitkeep
+configs/*.json
+!configs/example.json

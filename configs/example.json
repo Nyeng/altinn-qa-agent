@@ -1,0 +1,29 @@
+{
+  "org": "ttd",
+  "app": "min-app",
+
+  "token": "",
+
+  "tokenGenerator": {
+    "scopes": "altinn:portal/enduser",
+    "userId": "",
+    "partyId": "",
+    "pid": ""
+  },
+
+  "headers": {
+    "Ocp-Apim-Subscription-Key": ""
+  },
+
+  "apis": {
+    "platform-storage": {
+      "baseUrl": "https://platform.at22.altinn.cloud/storage/api/v1",
+      "description": "Altinn Storage (instanser og data på plattformnivå)",
+      "headers": { "Ocp-Apim-Subscription-Key": "" },
+      "useToken": true
+    }
+  },
+
+  "maxSteps": 40,
+  "allowDelete": false
+}

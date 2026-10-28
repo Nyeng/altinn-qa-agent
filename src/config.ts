@@ -1,12 +1,7 @@
-// All konfigurasjon kommer fra miljøvariabler (.env lokalt, secrets i CI).
-// Hemmeligheter leses her og brukes kun av verktøyene - de sendes aldri til Claude.
+// Felles innstillinger kommer fra miljøvariabler, alt miljøspesifikt fra én JSON per miljø
+// (se env-config.ts). Hemmeligheter brukes kun av verktøyene - de sendes aldri til Claude.
+import { loadEnvConfig, secretValues } from "./env-config.js";
 import { appBaseUrl, assertNotProduction, isEnvName, type EnvName } from "./environments.js";
-
-function required(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Mangler miljøvariabel ${name} (se .env.example)`);
-  return value;
-}
 
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 type Effort = (typeof EFFORTS)[number];
@@ -28,19 +23,39 @@ function envName(): EnvName {
 }
 
 const env = envName();
-const org = env === "local" ? (process.env.ALTINN_ORG ?? "ttd") : required("ALTINN_ORG");
-const app = required("ALTINN_APP");
-const baseUrl = appBaseUrl(env, org, process.env.TARGET_BASE_URL);
-assertNotProduction(baseUrl);
+const envConfig = loadEnvConfig(env);
+const baseUrl = appBaseUrl(env, envConfig.org, envConfig.baseUrl);
+
+// "app" er alltid appen som testes; øvrige API-er kommer fra konfigen.
+export type ApiTarget = { baseUrl: URL; description: string; headers: Record<string, string>; useToken: boolean };
+const apis: Record<string, ApiTarget> = {
+  app: {
+    baseUrl,
+    description: `Altinn-appen som testes (stier starter med /${envConfig.org}/${envConfig.app})`,
+    headers: envConfig.headers,
+    useToken: true,
+  },
+};
+for (const [name, api] of Object.entries(envConfig.apis)) {
+  if (name === "app") throw new Error('API-navnet "app" er reservert');
+  apis[name] = { ...api, baseUrl: new URL(api.baseUrl) };
+}
+for (const api of Object.values(apis)) assertNotProduction(api.baseUrl);
 
 export const config = {
   model: process.env.QA_MODEL ?? "claude-opus-5-5",
   effort: effort(),
-  maxSteps: Number(process.env.QA_MAX_STEPS ?? 40),
+  maxSteps: envConfig.maxSteps ?? Number(process.env.QA_MAX_STEPS ?? 40),
   env,
   target: {
     baseUrl,
-    appPath: `/${org}/${app}`,
-    allowDelete: process.env.QA_ALLOW_DELETE === "true",
+    appPath: `/${envConfig.org}/${envConfig.app}`,
+    allowDelete: envConfig.allowDelete,
+    apis,
   },
+  auth: {
+    token: envConfig.token,
+    tokenGenerator: envConfig.tokenGenerator,
+  },
+  secrets: secretValues(envConfig),
 };
