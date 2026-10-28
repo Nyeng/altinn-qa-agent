@@ -6,7 +6,10 @@
   "type": "module",
   "scripts": {
     "explore": "tsx --env-file-if-exists=.env src/explore.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "explore:at22": "tsx --env-file-if-exists=.env src/explore.ts --env=at22",
+    "explore:at23": "tsx --env-file-if-exists=.env src/explore.ts --env=at23",
+    "explore:tt02": "tsx --env-file-if-exists=.env src/explore.ts --env=tt02"
   },
   "engines": {
     "node": ">=22"

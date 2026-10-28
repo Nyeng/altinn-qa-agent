@@ -1,7 +1,7 @@
 import type { SessionResult } from "./agent.js";
 
 // Øktrapport i markdown - samme struktur som en manuell SBTM-rapport.
-export function renderReport(charter: string, result: SessionResult, meta: { model: string; started: Date }): string {
+export function renderReport(charter: string, result: SessionResult, meta: { model: string; env: string; started: Date }): string {
   const section = (title: string, lines: string[]) =>
     lines.length ? `## ${title}\n\n${lines.join("\n")}\n` : `## ${title}\n\n_Ingen._\n`;
 
@@ -16,7 +16,7 @@ export function renderReport(charter: string, result: SessionResult, meta: { mod
   const http = result.httpLog.map((h) => `| ${h.method} | \`${h.path}\` | ${h.status} | ${h.ms} | ${h.why} |`);
 
   return [
-    `# Testøkt ${meta.started.toISOString().slice(0, 16).replace("T", " ")}`,
+    `# Testøkt (${meta.env}) ${meta.started.toISOString().slice(0, 16).replace("T", " ")}`,
     `Modell: \`${meta.model}\` · Verktøykall: ${result.steps} · Stopp: ${result.stopReason} · ` +
       `Tokens inn/ut/cache: ${result.usage.input}/${result.usage.output}/${result.usage.cacheRead}\n`,
     `## Charter\n\n${charter.trim()}\n`,

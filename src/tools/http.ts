@@ -1,11 +1,12 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
+import { getToken, secretsToRedact } from "../auth.js";
 import { config } from "../config.js";
 
 // Uke 1: agentens eneste "hender" er HTTP mot appens API.
 // Sikkerhet ligger i koden, ikke i prompten:
-//  - kun TARGET_BASE_URL sin vert er lov
-//  - auth-header legges på her, og tokenet vaskes ut av alt som går tilbake til Claude
+//  - kun appens vert i valgt miljø (at22/at23/tt02/local) er lov
+//  - auth-header (token for valgt miljø) legges på her, og hemmeligheter vaskes ut av alt som går tilbake til Claude
 //  - DELETE er av med mindre QA_ALLOW_DELETE=true
 
 const MAX_BODY_CHARS = 8000;
@@ -71,12 +72,11 @@ export async function runHttpRequest(
 
   const headers = new Headers(input.headers);
   headers.delete("authorization");
-  if (config.target.bearerToken) {
-    headers.set("authorization", `Bearer ${config.target.bearerToken}`);
-  }
-
   const started = Date.now();
   try {
+    const token = await getToken();
+    if (token) headers.set("authorization", `Bearer ${token}`);
+
     const res = await fetch(url, {
       method: input.method,
       headers,
@@ -107,8 +107,7 @@ export async function runHttpRequest(
   }
 }
 
-// Belte og bukseseler: fjern tokenet hvis appen skulle speile det tilbake.
+// Belte og bukseseler: fjern hemmeligheter hvis appen skulle speile dem tilbake.
 function redact(text: string): string {
-  const token = config.target.bearerToken;
-  return token ? text.replaceAll(token, "[REDACTED]") : text;
+  return secretsToRedact().reduce((t, secret) => t.replaceAll(secret, "[REDACTED]"), text);
 }
