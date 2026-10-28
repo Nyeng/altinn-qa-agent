@@ -23,7 +23,8 @@ await mkdir("reports", { recursive: true });
 // Overskrift (f.eks. "PR #4613") skrives av charter-skriptet i CI, hvis den finnes.
 const titleFile = path.join(path.dirname(charterPath), "title.txt");
 const title = existsSync(titleFile) ? (await readFile(titleFile, "utf8")).trim() || undefined : undefined;
-const report = renderReport(result, { env: config.env, title });
+const runUrl = process.env.QA_RUN_URL || undefined; // settes av GitHub Actions
+const report = renderReport(result, { env: config.env, model: config.model, title, runUrl });
 await writeFile(path.join("reports", name), report);
 // Alle detaljer (dekning per krav, hele HTTP-loggen) til artefakten - ikke i den korte rapporten.
 await writeFile(path.join("reports", "session.json"), JSON.stringify({ env: config.env, model: config.model, ...result }, null, 2));

@@ -65,12 +65,13 @@ jobs:
             || github.event.comment.body }}
       IS_PR: ${{ github.event.issue.pull_request != null }}
       PR_REF: ${{ inputs.pr }}
+      QA_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       QA_MODEL: ${{ inputs.model || 'claude-sonnet-5-5' }}
       QA_MAX_STEPS: ${{ inputs.max_steps }}
     steps:
       - name: Kvitter med 👀
         if: github.event_name == 'issue_comment'
-        run: gh api "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" -f content=eyes
+        run: gh api "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" -f content=eyes > /dev/null
 
       - uses: actions/checkout@v4
 
@@ -98,22 +99,17 @@ jobs:
       - name: Publiser rapporten
         if: success()
         run: |
-          {
-            head -c 60000 reports/latest.md
-            echo
-            echo
-            echo "<sub>[logg](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})</sub>"
-          } > comment.md
+          cp reports/latest.md comment.md
           cat comment.md >> "$GITHUB_STEP_SUMMARY"
-          if [ -n "$NUMBER" ]; then
-            gh issue comment "$NUMBER" --repo "${{ github.repository }}" --body-file comment.md
-          fi
+          # Én rapportkommentar per issue (oppdateres ved ny kjøring) + statuslinje i issueteksten
+          node scripts/publish.mjs report "$NUMBER" comment.md
+          node scripts/publish.mjs status "$NUMBER" "✅ Testet $(date -u +%Y-%m-%d) i ${{ steps.charter.outputs.env }}"
 
       - name: Si fra om feil
-        if: failure() && env.NUMBER != ''
+        if: failure()
         run: >-
-          gh issue comment "$NUMBER" --repo "${{ github.repository }}"
-          --body "⚠️ Snoken snublet. Se [kjøringen](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
+          node scripts/publish.mjs status "$NUMBER"
+          "⚠️ Snoken feilet - [logg](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
 
       - uses: actions/upload-artifact@v4
         if: always()

@@ -7,7 +7,10 @@ import type { HttpLogEntry } from "./tools/http.js";
 
 const ICON = { bestått: "✅", feilet: "❌", "ikke testet": "⚪" } as const;
 
-export function renderReport(result: SessionResult, meta: { env: string; title?: string }): string {
+export function renderReport(
+  result: SessionResult,
+  meta: { env: string; model: string; title?: string; runUrl?: string },
+): string {
   const byId = new Map(result.httpLog.map((e) => [e.id, e]));
 
   const verified = result.checks.length
@@ -41,6 +44,15 @@ export function renderReport(result: SessionResult, meta: { env: string; title?:
     "",
     "**Funn**",
     ...findings,
+    "",
+    `<sub>${[
+      meta.model,
+      `${result.httpLog.length} kall`,
+      Number.isNaN(result.costUsd) ? "pris ukjent" : `$${result.costUsd.toFixed(2)}`,
+      meta.runUrl && `[logg](${meta.runUrl})`,
+    ]
+      .filter(Boolean)
+      .join(" · ")}</sub>`,
   ].join("\n");
 }
 

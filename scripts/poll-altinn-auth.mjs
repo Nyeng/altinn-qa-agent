@@ -11,6 +11,7 @@
 // Miljø: GH_TOKEN, GITHUB_REPOSITORY, SNOKEN_ALLOWED_USERS, SNOKEN_DEPLOY_DELAY_MINUTES, LOOKBACK_HOURS, DRY_RUN.
 import { execFileSync } from "node:child_process";
 import { CATEGORIES, classify } from "./pr-testability.mjs";
+import { setStatus } from "./publish.mjs";
 
 const SOURCE_REPO = "Altinn/altinn-auth";
 const OWN_REPO = process.env.GITHUB_REPOSITORY ?? "Nyeng/altinn-qa-agent";
@@ -74,10 +75,11 @@ function registerRequests() {
     // "tving" eller "kategori:<navn>" kjører også PR-er som ellers regnes som ikke testbare.
     req.force = /\btving\b|\bkategori:/i.test(req.charter);
 
+    // Issuen er bare forespørselen + én statuslinje; rapporten kommer som én kommentar (scripts/publish.mjs).
     const body =
-      `Forespørsel fra @${req.author} i ${req.commentUrl}\n\n**Miljø:** \`${req.env}\`\n\n` +
-      `**Charter:**\n> ${req.charter.replaceAll("\n", "\n> ") || "(standard)"}\n\n` +
-      (isPr ? "⏳ Venter til PR-en er merget og deployet til miljøet.\n\n" : "") +
+      `**Status:** ${isPr ? "⏳ Venter på merge og deploy" : "⏳ Venter"}\n\n` +
+      `Forespørsel fra @${req.author}: ${req.commentUrl}\n\n**Miljø:** \`${req.env}\`\n\n` +
+      `> ${req.charter.replaceAll("\n", "\n> ") || "(standard)"}\n\n` +
       `<!-- snoken:${JSON.stringify(req)} -->`;
     if (DRY_RUN) {
       log(`ville registrert ${req.sourceUrl} (${req.env}): "${req.charter.slice(0, 60)}"`);
@@ -153,16 +155,14 @@ function startReady() {
     if (r.done) {
       log(`#${issue.number}: ${r.done}`);
       if (!DRY_RUN) {
-        gh(["issue", "comment", String(issue.number), "-R", OWN_REPO, "--body", r.done.startsWith("⚪") ? r.done : `⏹️ ${r.done}`]);
+        setStatus(issue.number, r.done.startsWith("⚪") ? r.done : `⏹️ ${r.done}`);
         gh(["issue", "close", String(issue.number), "-R", OWN_REPO]);
       }
       continue;
     }
     if (r.waiting) {
       log(`#${issue.number}: ⏳ ${r.waiting}`);
-      // Kommenter bare når statusen endrer seg, så issuen ikke fylles med like meldinger.
-      const last = issue.comments?.at(-1)?.body ?? "";
-      if (!DRY_RUN && !last.includes(r.waiting)) gh(["issue", "comment", String(issue.number), "-R", OWN_REPO, "--body", `⏳ ${r.waiting}`]);
+      if (!DRY_RUN) setStatus(issue.number, `⏳ ${r.waiting}`);
       continue;
     }
     if (started >= MAX_RUNS_PER_POLL) {
@@ -178,7 +178,7 @@ function startReady() {
     if (!DRY_RUN) {
       gh(runArgs);
       gh(["issue", "edit", String(issue.number), "-R", OWN_REPO, "--remove-label", WAITING]);
-      gh(["issue", "comment", String(issue.number), "-R", OWN_REPO, "--body", `▶️ Startet. ${r.note ?? ""}`]);
+      setStatus(issue.number, `▶️ Kjører. ${r.note ?? ""}`.trim());
     }
     started++;
   }
