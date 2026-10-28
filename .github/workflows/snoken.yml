@@ -21,6 +21,14 @@ on:
         description: Charter (hva Snoken skal utforske)
         type: string
         required: false
+      pr:
+        description: PR-lenke i altinn-auth (valgfritt) - gir PR-beskrivelse og diff som kontekst
+        type: string
+        required: false
+      max_steps:
+        description: Maks verktøykall
+        type: number
+        default: 25
       model:
         description: Modell
         type: choice
@@ -52,7 +60,9 @@ jobs:
             && format('/snoken {0} {1}', inputs.env, inputs.charter)
             || github.event.comment.body }}
       IS_PR: ${{ github.event.issue.pull_request != null }}
+      PR_REF: ${{ inputs.pr }}
       QA_MODEL: ${{ inputs.model || 'claude-sonnet-5-5' }}
+      QA_MAX_STEPS: ${{ inputs.max_steps || 25 }}
     steps:
       - name: Kvitter med 👀
         if: github.event_name == 'issue_comment'

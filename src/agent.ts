@@ -12,7 +12,15 @@ import {
   type SessionFinding,
   type SessionNote,
 } from "./tools/session.js";
-import { pickTestUserTool, runPickTestUser, runSwitchUser, setActiveUser, switchUserTool } from "./tools/users.js";
+import {
+  pickTestUserTool,
+  runPickTestUser,
+  runSwitchUser,
+  runUseServiceOwner,
+  setActiveUser,
+  switchUserTool,
+  useServiceOwnerTool,
+} from "./tools/users.js";
 
 // Manuell agentløkke - bevisst skrevet for hånd (ikke tool runner) for å lære
 // mekanikken eksamen tester: stop_reason, tool_use/tool_result og meldingshistorikk.
@@ -30,7 +38,7 @@ export type SessionResult = {
 };
 
 const client = new Anthropic();
-const tools = [pickTestUserTool, switchUserTool, httpRequestTool, recordNoteTool, reportFindingTool];
+const tools = [pickTestUserTool, useServiceOwnerTool, switchUserTool, httpRequestTool, recordNoteTool, reportFindingTool];
 
 export async function runSession(charter: string): Promise<SessionResult> {
   const notes: SessionNote[] = [];
@@ -148,6 +156,8 @@ async function executeTool(
       return runPickTestUser(use.input);
     case "switch_user":
       return runSwitchUser(use.input);
+    case "use_service_owner":
+      return runUseServiceOwner(use.input);
     case "http_request":
       return runHttpRequest(use.input, state.httpLog);
     case "record_note":
@@ -168,7 +178,9 @@ function logToolCall(use: Anthropic.Beta.BetaToolUseBlock, isError: boolean) {
         ? `🐞 ${input.title}`
         : use.name === "pick_test_user"
           ? `👤 ny bruker fra ${input.category}`
-          : use.name === "switch_user"
+          : use.name === "use_service_owner"
+            ? `🏛️ tjenesteeier ${input.owner} (${(input.scopes as string[]).join(", ")})`
+            : use.name === "switch_user"
             ? `👤 bytter til ${input.alias}`
             : `📝 [${input.kind}] ${input.text}`;
   console.log(`${isError ? "⚠️ " : "→ "} ${label}`);

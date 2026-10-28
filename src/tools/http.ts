@@ -9,7 +9,7 @@ import { assertAllowedHost } from "../environments.js";
 // Sikkerhet ligger i koden, ikke i prompten:
 //  - kun API-ene i miljøets konfig er lov, og kun verter i Altinns testmiljøer (hardkodet)
 //  - token og hemmelige headere (API-nøkler) legges på her, og vaskes ut av alt som går tilbake til Claude
-//  - DELETE er av med mindre QA_ALLOW_DELETE=true
+//  - DELETE er av med mindre QA_ALLOW_DELETE=true - unntak: opprydding av Snokens egne `snoken-*`-ressurser
 
 const MAX_BODY_CHARS = 8000;
 
@@ -74,9 +74,6 @@ export async function runHttpRequest(
   }
   const input = parsed.data;
 
-  if (input.method === "DELETE" && !config.target.allowDelete) {
-    return { content: "DELETE er deaktivert for denne økten (QA_ALLOW_DELETE=false).", isError: true };
-  }
 
   const user = activeUser();
   if (!user) return { content: "Ingen aktiv bruker. Hent en med pick_test_user først.", isError: true };
@@ -94,6 +91,15 @@ export async function runHttpRequest(
     assertAllowedHost(url);
   } catch (err) {
     return { content: (err as Error).message, isError: true };
+  }
+
+  // Sjekkes på den normaliserte URL-en (etter ../ og %2e), så stien ikke kan lure seg forbi.
+  const lastSegment = url.pathname.split("/").filter(Boolean).pop() ?? "";
+  if (input.method === "DELETE" && !config.target.allowDelete && !/^snoken-[a-z0-9_-]+$/.test(lastSegment)) {
+    return {
+      content: "DELETE er kun lov for opprydding av egne testressurser (identifikator som starter med snoken-).",
+      isError: true,
+    };
   }
 
   // Modellen får ikke sette auth eller noen av de hemmelige headerne selv.

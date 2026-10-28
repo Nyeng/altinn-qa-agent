@@ -1,6 +1,14 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { availableCategories, describeUser, knownUsers, pickUser, type TestUser } from "../testusers.js";
+import {
+  addServiceOwner,
+  availableCategories,
+  describeUser,
+  knownUsers,
+  pickUser,
+  SERVICE_OWNER_SCOPES,
+  type TestUser,
+} from "../testusers.js";
 
 // Verktøy for å velge testbrukere etter brukerflyt og bytte mellom dem.
 // Flere brukere i samme økt = tilgangskontrolltesting: kan bruker-A se/endre bruker-B sine data?
@@ -65,4 +73,38 @@ export function runSwitchUser(rawInput: unknown) {
   }
   active = user;
   return { content: `Aktiv bruker er nå ${describeUser(user)}`, isError: false };
+}
+
+export const useServiceOwnerTool: Anthropic.Beta.BetaTool = {
+  name: "use_service_owner",
+  description:
+    "Opptre som tjenesteeier (virksomhetstoken) i stedet for sluttbruker - trengs f.eks. for å opprette eller " +
+    "endre ressurser i ressursregisteret (POST/PUT /resourceregistry/api/v1/resource). TTD (orgnr 991825827) " +
+    "eier testressursene. Ressurser du oppretter MÅ ha identifikator som starter med snoken- og ryddes bort etterpå.",
+  strict: true,
+  input_schema: {
+    type: "object",
+    properties: {
+      owner: { type: "string", enum: ["ttd"] },
+      scopes: { type: "array", items: { type: "string", enum: Object.keys(SERVICE_OWNER_SCOPES) } },
+    },
+    required: ["owner", "scopes"],
+    additionalProperties: false,
+  },
+};
+
+export function runUseServiceOwner(rawInput: unknown) {
+  const parsed = z
+    .object({
+      owner: z.string(),
+      scopes: z.array(z.enum(Object.keys(SERVICE_OWNER_SCOPES) as [keyof typeof SERVICE_OWNER_SCOPES])).min(1),
+    })
+    .safeParse(rawInput);
+  if (!parsed.success) return { content: `Ugyldig input: ${parsed.error.message}`, isError: true };
+  try {
+    active = addServiceOwner(parsed.data.owner, parsed.data.scopes);
+    return { content: `Aktiv bruker er nå ${describeUser(active)}`, isError: false };
+  } catch (err) {
+    return { content: (err as Error).message, isError: true };
+  }
 }

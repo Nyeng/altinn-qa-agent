@@ -11,6 +11,8 @@ const TESTDATA_BASE =
 export type TestUser = {
   alias: string;
   category: string;
+  // Tjenesteeier: virksomhetstoken (GetEnterpriseToken) i stedet for sluttbrukertoken.
+  enterprise?: { org: string; orgNo: string; scopes: string };
   pid?: string; // hemmelig - kun til tokenhenting
   userId?: string;
   partyId?: string;
@@ -73,6 +75,27 @@ export async function pickUser(categoryId: string): Promise<TestUser> {
     }
   }
   throw new Error(`Ingen flere ubrukte testbrukere i "${categoryId}" for ${config.env}`);
+}
+
+// Tjenesteeier-tokens, samme oppsett som K6 (resource-registry/create-resource-and-policy.js):
+// TTD eier testressursene, og registeret sjekker at eierens orgnr matcher tokenet.
+const SERVICE_OWNERS: Record<string, { org: string; orgNo: string }> = {
+  ttd: { org: "ttd", orgNo: "991825827" },
+};
+export const SERVICE_OWNER_SCOPES = {
+  "resource-read": "altinn:resourceregistry/resource.read",
+  "resource-write": "altinn:resourceregistry/resource.write",
+} as const;
+
+export function addServiceOwner(owner: string, scopeKeys: (keyof typeof SERVICE_OWNER_SCOPES)[]): TestUser {
+  const so = SERVICE_OWNERS[owner];
+  if (!so) throw new Error(`Ukjent tjenesteeier "${owner}". Kjente: ${Object.keys(SERVICE_OWNERS).join(", ")}`);
+  const scopes = scopeKeys.map((k) => SERVICE_OWNER_SCOPES[k]).join(" ");
+  return addUser({
+    category: `tjenesteeier ${so.org}`,
+    enterprise: { ...so, scopes },
+    context: { orgNo: `${so.orgNo} (tjenesteeierens orgnr)`, scopes: scopes },
+  });
 }
 
 // Det Snoken får se om en bruker.
