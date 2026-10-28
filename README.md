@@ -37,12 +37,12 @@ Alt miljøspesifikt ligger i **én JSON per miljø** (se [`configs/example.json`
 | Lokalt | `.env` | `configs/at22.json`, `configs/at23.json`, `configs/tt02.json` (gitignored) |
 | GitHub Actions | secrets `ANTHROPIC_API_KEY`, `TOKEN_GENERATOR_USERNAME`, `TOKEN_GENERATOR_PASSWORD` | secrets `QA_CONFIG_AT22`, `QA_CONFIG_AT23`, `QA_CONFIG_TT02` |
 
-## Start fra GitHub: `@qa-agent` (kun i altinn-auth)
+## Start fra GitHub: `/qa-agent` (kun i altinn-auth)
 
 Kommenter på en issue eller PR i Altinn/altinn-auth:
 
 ```
-@qa-agent at23 Utforsk delegering av tilgangspakker til en annen person
+/qa-agent at23 Utforsk delegering av tilgangspakker til en annen person
 ```
 
 Workflowen reagerer med 👀, kjører økten og svarer med rapporten. Miljø er `at23` (standard), `at22` eller `tt02`;

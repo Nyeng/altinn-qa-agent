@@ -2,7 +2,7 @@
 #
 # Start en utforskende testøkt ved å kommentere på en issue eller PR i altinn-auth:
 #
-#   @qa-agent at23 Utforsk delegering av tilgangspakker til en annen person
+#   /qa-agent at23 Utforsk delegering av tilgangspakker til en annen person
 #
 # Miljø: at22 | at23 | tt02 (standard at23). Resten av kommentaren blir charteret.
 # På en PR legges diffen ved som kontekst.
@@ -23,7 +23,7 @@ jobs:
     # Lås 1: kun dette repoet. Lås 2: kun org-medlemmer (secrets og API-kreditt).
     if: >-
       github.repository == 'Altinn/altinn-auth' &&
-      contains(github.event.comment.body, '@qa-agent') &&
+      contains(github.event.comment.body, '/qa-agent') &&
       contains(fromJSON('["OWNER","MEMBER"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
     # Lås 3: alle secrets ligger i dette Environment-et (kun main, ev. med påkrevde godkjennere).

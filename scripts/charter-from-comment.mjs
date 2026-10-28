@@ -1,5 +1,5 @@
 // Gjør en GitHub-kommentar om til et charter for agenten.
-//   "@qa-agent at23 Utforsk vedlegg med store filer"  ->  env=at23, charter=resten
+//   "/qa-agent at23 Utforsk vedlegg med store filer"  ->  env=at23, charter=resten
 // Kjøres i GitHub Action. Leser COMMENT_BODY, IS_PR, NUMBER fra miljøet.
 import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
@@ -7,7 +7,7 @@ import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 const MAX_DIFF_CHARS = 20000;
 const body = process.env.COMMENT_BODY ?? "";
 
-const afterMention = body.slice(body.indexOf("@qa-agent") + "@qa-agent".length).trim();
+const afterMention = body.slice(body.indexOf("/qa-agent") + "/qa-agent".length).trim();
 const envMatch = afterMention.match(/^(at22|at23|tt02)\b/i);
 const env = envMatch ? envMatch[1].toLowerCase() : "at23";
 const request = (envMatch ? afterMention.slice(envMatch[0].length) : afterMention).trim();
