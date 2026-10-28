@@ -21,6 +21,10 @@ on:
         description: Charter (hva Snoken skal utforske)
         type: string
         required: false
+      issue:
+        description: Issue her som rapporten skal postes i (valgfritt - brukes av pollingen)
+        type: string
+        required: false
       pr:
         description: PR-lenke i altinn-auth (valgfritt) - gir PR-beskrivelse og diff som kontekst
         type: string
@@ -53,7 +57,7 @@ jobs:
       cancel-in-progress: false
     env:
       GH_TOKEN: ${{ github.token }}
-      NUMBER: ${{ github.event.issue.number }}
+      NUMBER: ${{ github.event.issue.number || inputs.issue }}
       # Brukerinput sendes som miljøvariabler - aldri interpolert direkte i run-skript.
       COMMENT_BODY: >-
         ${{ github.event_name == 'workflow_dispatch'
@@ -107,7 +111,7 @@ jobs:
           fi
 
       - name: Si fra om feil
-        if: failure() && github.event_name == 'issue_comment'
+        if: failure() && env.NUMBER != ''
         run: >-
           gh issue comment "$NUMBER" --repo "${{ github.repository }}"
           --body "⚠️ Snoken snublet. Se [kjøringen](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."

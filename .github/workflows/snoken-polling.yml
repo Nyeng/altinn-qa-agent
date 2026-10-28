@@ -1,0 +1,38 @@
+# Ser etter "/snoken"-kommentarer i Altinn/altinn-auth én gang i timen og starter Snoken for dem.
+# Rapporten havner som issue her - ingenting skrives til altinn-auth.
+#
+#   Skriv på en PR/issue i altinn-auth:   /snoken at22 Test trim av orgnr, maks 6 steg
+#
+# Kun kommentarer fra brukerne i vars.SNOKEN_ALLOWED_USERS (standard: Nyeng) teller.
+# Kun i arbeidstiden: hver time kl. 07-16 norsk vintertid (08-17 sommertid), mandag-fredag.
+# Kostnad: ~1 Actions-minutt per sjekk (~220/mnd). Claude brukes bare når en forespørsel finnes.
+# Forespørsler fra kveld/helg plukkes opp ved første sjekk neste arbeidsdag.
+
+name: Snoken-polling (altinn-auth)
+
+on:
+  schedule:
+    - cron: "17 6-15 * * 1-5" # UTC. Litt etter hel time (mindre kø hos GitHub)
+  workflow_dispatch: # sjekk nå
+
+permissions:
+  contents: read
+  issues: write
+  actions: write # for å starte snoken.yml
+
+jobs:
+  poll:
+    if: github.repository == 'Nyeng/altinn-qa-agent'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: snoken-polling
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SNOKEN_ALLOWED_USERS: ${{ vars.SNOKEN_ALLOWED_USERS || 'Nyeng' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - run: node scripts/poll-altinn-auth.mjs

@@ -81,7 +81,13 @@ i miljøkonfigen.
 *Actions → Snoken → Run workflow*. Kun repo-eieren kan starte økter. Bruker repository secrets
 `ANTHROPIC_API_KEY`, `TOKEN_GENERATOR_USERNAME`, `TOKEN_GENERATOR_PASSWORD` og (valgfritt) `QA_CONFIG_<MILJØ>`.
 
-**I altinn-auth (senere):**
+**Fra altinn-auth via polling (nå):** skriv `/snoken at22 <charter>` som kommentar på en PR eller issue i
+Altinn/altinn-auth. [`snoken-polling.yml`](.github/workflows/snoken-polling.yml) sjekker hver time i arbeidstiden
+(07–16 norsk vintertid, man–fre), lager en issue her med lenke tilbake, og Snoken svarer i den. PR-diffen tas med
+automatisk, og «maks N steg» i teksten setter grensen. Kun kommentarer fra `vars.SNOKEN_ALLOWED_USERS`
+(standard `Nyeng`) teller, maks 3 økter per time, og ingenting skrives til altinn-auth.
+
+**Direkte i altinn-auth (senere, krever teamet):**
 
 Kommenter på en issue eller PR i Altinn/altinn-auth:
 
