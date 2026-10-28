@@ -173,7 +173,7 @@ function logToolCall(use: Anthropic.Beta.BetaToolUseBlock, isError: boolean) {
   const input = use.input as Record<string, unknown>;
   const label =
     use.name === "http_request"
-      ? `${input.api} ${input.method} ${input.path}  — ${input.why}`
+      ? `${input.api ?? "platform"} ${input.method} ${input.path}  — ${input.why}`
       : use.name === "report_finding"
         ? `🐞 ${input.title}`
         : use.name === "pick_test_user"

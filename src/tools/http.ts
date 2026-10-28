@@ -29,7 +29,7 @@ export const httpRequestTool: Anthropic.Beta.BetaTool = {
   input_schema: {
     type: "object",
     properties: {
-      api: { type: "string", enum: apiNames, description: "Hvilket API" },
+      api: { type: "string", enum: apiNames, description: 'Hvilket API (standard "platform")' },
       method: { type: "string", enum: ["GET", "POST", "PUT", "PATCH", "DELETE"] },
       path: { type: "string", description: "Sti relativ til base-URL, må starte med /" },
       headers: {
@@ -46,7 +46,7 @@ export const httpRequestTool: Anthropic.Beta.BetaTool = {
 };
 
 const HttpInput = z.object({
-  api: z.string(),
+  api: z.string().default("platform"),
   method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
   path: z.string().startsWith("/"),
   headers: z.record(z.string(), z.string()).optional(),
