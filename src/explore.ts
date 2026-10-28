@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { runSession } from "./agent.js";
@@ -19,12 +20,15 @@ const result = await runSession(charter);
 
 const name = `${started.toISOString().slice(0, 16).replace(/[:T]/g, "-")}-${config.env}-${path.basename(charterPath, ".md")}.md`;
 await mkdir("reports", { recursive: true });
-const report = renderReport(charter, result, { model: config.model, env: config.env, started });
+// Overskrift (f.eks. "PR #4613") skrives av charter-skriptet i CI, hvis den finnes.
+const titleFile = path.join(path.dirname(charterPath), "title.txt");
+const title = existsSync(titleFile) ? (await readFile(titleFile, "utf8")).trim() || undefined : undefined;
+const report = renderReport(result, { env: config.env, title });
 await writeFile(path.join("reports", name), report);
 // Fast filnavn så CI (GitHub Action) kan poste rapporten som kommentar.
 await writeFile(path.join("reports", "latest.md"), report);
 
 console.log(
-  `\n📄 Rapport: reports/${name}  ·  ${result.findings.length} funn, ${result.notes.length} notater` +
+  `\n📄 Rapport: reports/${name}  ·  ${result.checks.length} krav, ${result.findings.length} funn` +
     `  ·  ca. $${result.costUsd.toFixed(2)}`,
 );

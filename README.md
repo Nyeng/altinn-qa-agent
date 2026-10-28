@@ -48,6 +48,42 @@ URL-ene må høre til miljøet som velges, ellers stopper Snoken.
 | Lokalt | `.env` | `configs/at22.json`, `configs/at23.json`, `configs/tt02.json` (gitignored) |
 | GitHub Actions | secrets `ANTHROPIC_API_KEY`, `TOKEN_GENERATOR_USERNAME`, `TOKEN_GENERATOR_PASSWORD` | secrets `QA_CONFIG_AT22`, `QA_CONFIG_AT23`, `QA_CONFIG_TT02` |
 
+## Rapport
+
+Kort punktliste – bare det som er verifisert (mot akseptansekriterier fra issuene PR-en lukker, ellers
+PR-beskrivelsen) og reproduserbare funn:
+
+```
+### 🕵️ PR #4736 🟢 · at22
+**Verifisert**
+- ✅ Tom side har ikke next-lenke
+- ❌ Orgnr med mellomrom foran blir trimmet og lagret – 500 FormatException
+- ⚪ Ikke testet: PUT med mellomrom bak
+
+**Funn**
+- 🐞 **POST med orgnr med mellomrom foran gir 500** (middels) – forventet 201, faktisk 500
+  ▸ Reproduser (curl + svarutdrag, sammenfoldet)
+```
+
+Forespørsler og svar i rapporten hentes fra HTTP-loggen – Snoken må vise til kall-ID-er – så rapporten kan ikke
+inneholde resultater som ikke faktisk skjedde. Returnerer et API tokenet eller en nøkkel, ser Snoken en tydelig
+markør og rapporterer det som lekkasje.
+
+## Hvor testbar er PR-en?
+
+PR-er klassifiseres automatisk ([`scripts/pr-testability.mjs`](scripts/pr-testability.mjs)), bygd på de 80 siste
+mergede PR-ene i altinn-auth:
+
+| | Kategori | Andel | Snoken gjør |
+|---|---|---:|---|
+| 🟢 | Funksjonell endring | ~10 % | Verifiserer akseptansekriteriene |
+| 🟡 | Bak feature-flagg | ~4 % | Sjekker om flagget er på; ellers «ikke testet» |
+| 🟠 | Teknisk endring i kode | ~18 % | Kort regresjon av berørte endepunkter |
+| 🔵 | Deploy/infrastruktur | ~19 % | Røyktest: tjenesten svarer |
+| ⚪ | Ikke testbar (CI, tester, docs) | ~50 % | Kjører ikke – svarer med begrunnelse |
+
+Overstyr med `kategori:<navn>` eller `tving` i kommentaren.
+
 ## Testbrukere etter brukerflyt
 
 Snoken henter syntetiske testbrukere fra testdataene i

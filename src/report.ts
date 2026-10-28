@@ -1,32 +1,66 @@
 import type { SessionResult } from "./agent.js";
+import type { HttpLogEntry } from "./tools/http.js";
 
-// Øktrapport i markdown - samme struktur som en manuell SBTM-rapport.
-export function renderReport(charter: string, result: SessionResult, meta: { model: string; env: string; started: Date }): string {
-  const section = (title: string, lines: string[]) =>
-    lines.length ? `## ${title}\n\n${lines.join("\n")}\n` : `## ${title}\n\n_Ingen._\n`;
+// Rapporten er bevisst kort: en punktliste over hva som er verifisert (mot akseptansekriterier der de finnes)
+// og eventuelle funn. Reproduksjon (curl + svar) ligger sammenfoldet under hvert funn.
+// Forespørsler og svar hentes fra HTTP-loggen (fasit), ikke fra modellens tekst.
 
-  const findings = result.findings.map(
-    (f, i) =>
-      `### ${i + 1}. ${f.title} (${f.severity})\n\n` +
-      `**Steg**\n${f.steps.map((s, n) => `${n + 1}. ${s}`).join("\n")}\n\n` +
-      `**Forventet:** ${f.expected}\n\n**Faktisk:** ${f.actual}\n\n` +
-      `**Bevis**\n\n\`\`\`\n${f.evidence}\n\`\`\`\n`,
-  );
-  const notes = result.notes.filter((n) => n.kind !== "pirk").map((n) => `- **${n.kind}:** ${n.text}`);
-  const nitpicks = result.notes.filter((n) => n.kind === "pirk").map((n) => `- ${n.text}`);
-  const http = result.httpLog.map((h) => `| ${h.user} | ${h.api} | ${h.method} | \`${h.path}\` | ${h.status} | ${h.ms} | ${h.why} |`);
+const ICON = { bestått: "✅", feilet: "❌", "ikke testet": "⚪" } as const;
+
+export function renderReport(result: SessionResult, meta: { env: string; title?: string }): string {
+  const byId = new Map(result.httpLog.map((e) => [e.id, e]));
+
+  const verified = result.checks.length
+    ? result.checks.map((c) =>
+        c.result === "bestått"
+          ? `- ✅ ${c.criterion}`
+          : c.result === "feilet"
+            ? `- ❌ ${c.criterion} – ${c.actual}`
+            : `- ⚪ Ikke testet: ${c.criterion}`,
+      )
+    : ["- Ingenting ble verifisert."];
+
+  const findings = result.findings.length
+    ? result.findings.map((f) => {
+        const calls = f.calls.map((id) => byId.get(id)).filter((e): e is HttpLogEntry => Boolean(e));
+        return [
+          `- 🐞 **${f.title}** (${f.severity}) – forventet ${f.expected}, faktisk ${f.actual}`,
+          "  <details><summary>Reproduser</summary>",
+          "",
+          ...calls.flatMap((e) => reproduce(e)),
+          "  </details>",
+        ].join("\n");
+      })
+    : ["- Ingen"];
 
   return [
-    `# Testøkt (${meta.env}) ${meta.started.toISOString().slice(0, 16).replace("T", " ")}`,
-    `Modell: \`${meta.model}\` · Verktøykall: ${result.steps} · Stopp: ${result.stopReason} · ` +
-      `Tokens inn/ut/cache lest/cache skrevet: ${result.usage.input}/${result.usage.output}/${result.usage.cacheRead}/${result.usage.cacheWrite} · ` +
-      `Estimert pris: ${Number.isNaN(result.costUsd) ? "ukjent modell" : `$${result.costUsd.toFixed(2)}`}\n`,
-    `## Charter\n\n${charter.trim()}\n`,
-    section("Testbrukere", result.users.map((u) => `- ${u}`)),
-    `## Oppsummering\n\n${result.summary || "_Ingen oppsummering._"}\n`,
-    section(`Funn (${result.findings.length})`, findings),
-    section("Notater", notes),
-    section(`🤓 Snokens pirkeliste (${nitpicks.length})`, nitpicks),
-    section("HTTP-logg", http.length ? ["| Bruker | API | Metode | Sti | Status | ms | Hvorfor |", "|---|---|---|---|---|---|---|", ...http] : []),
+    `### 🕵️ ${meta.title ?? "Snoken"} · ${meta.env}`,
+    "",
+    "**Verifisert**",
+    ...verified,
+    "",
+    "**Funn**",
+    ...findings,
   ].join("\n");
+}
+
+function reproduce(e: HttpLogEntry): string[] {
+  const headers = [`Authorization: Bearer ${e.auth}`, ...Object.entries(e.requestHeaders).map(([k, v]) => `${k}: ${v}`)];
+  const curl = [
+    `curl -i -X ${e.method} '${e.url}'`,
+    ...headers.map((h) => `  -H '${h.replaceAll("'", "'\\''")}'`),
+    ...(e.requestBody ? [`  --data '${e.requestBody.replaceAll("'", "'\\''")}'`] : []),
+  ].join(" \\\n");
+  return [
+    `  Svar: **${e.status}**${e.contentType ? ` (${e.contentType})` : ""}`,
+    "",
+    "  ```bash",
+    ...curl.split("\n").map((l) => `  ${l}`),
+    "  ```",
+    "",
+    "  ```",
+    ...e.responseExcerpt.slice(0, 800).split("\n").map((l) => `  ${l}`),
+    "  ```",
+    "",
+  ];
 }

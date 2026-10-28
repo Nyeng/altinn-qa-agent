@@ -10,6 +10,7 @@
 //
 // Miljø: GH_TOKEN, GITHUB_REPOSITORY, SNOKEN_ALLOWED_USERS, SNOKEN_DEPLOY_DELAY_MINUTES, LOOKBACK_HOURS, DRY_RUN.
 import { execFileSync } from "node:child_process";
+import { CATEGORIES, classify } from "./pr-testability.mjs";
 
 const SOURCE_REPO = "Altinn/altinn-auth";
 const OWN_REPO = process.env.GITHUB_REPOSITORY ?? "Nyeng/altinn-qa-agent";
@@ -70,6 +71,8 @@ function registerRequests() {
       charter: (envMatch ? after.slice(envMatch[0].length) : after).trim(),
     };
     req.maxSteps = req.charter.match(/\bmaks\s+(\d{1,2})\s+steg\b/i)?.[1];
+    // "tving" eller "kategori:<navn>" kjører også PR-er som ellers regnes som ikke testbare.
+    req.force = /\btving\b|\bkategori:/i.test(req.charter);
 
     const body =
       `Forespørsel fra @${req.author} i ${req.commentUrl}\n\n**Miljø:** \`${req.env}\`\n\n` +
@@ -107,7 +110,15 @@ export function deploymentStatus(app, env, mergeSha) {
 
 export function readiness(req) {
   if (!req.isPr) return { ready: true };
-  const pr = ghJson(["pr", "view", req.number, "-R", SOURCE_REPO, "--json", "state,mergedAt,mergeCommit,files"]);
+  const pr = ghJson(["pr", "view", req.number, "-R", SOURCE_REPO, "--json", "title,state,mergedAt,mergeCommit,files"]);
+  const testability = classify({ title: pr.title, files: pr.files.map((f) => f.path) });
+  if (!CATEGORIES[testability.category].run && !req.force) {
+    return {
+      done:
+        `⚪ Ikke testbar for Snoken: ${testability.reason} ` +
+        `Skriv \`/snoken ${req.env} tving …\` på PR-en for å kjøre likevel.`,
+    };
+  }
   if (pr.state === "CLOSED") return { done: "PR-en ble lukket uten merge - forespørselen avsluttes." };
   if (!pr.mergedAt) return { waiting: "PR-en er ikke merget ennå." };
 
@@ -124,8 +135,8 @@ export function readiness(req) {
     return { waiting: `Merget for ${Math.round(minutesSinceMerge)} min siden - venter minst ${DEPLOY_DELAY_MINUTES} min på deploy.` };
   }
   const note = untracked.length || !apps.length
-    ? `Deploy kunne ikke bekreftes (${untracked.join(", ") || "ukjent app"} registrerer ikke deployments i GitHub) - startet ${Math.round(minutesSinceMerge)} min etter merge.`
-    : `Deploy bekreftet: ${statuses.map((s) => `${s.app}/${req.env}`).join(", ")}.`;
+    ? `Deploy ikke bekreftet (${untracked.join(", ") || "ukjent app"} sporer ikke deploy i GitHub).`
+    : `Deploy bekreftet (${statuses.map((s) => `${s.app}/${req.env}`).join(", ")}).`;
   return { ready: true, note };
 }
 
@@ -142,7 +153,7 @@ function startReady() {
     if (r.done) {
       log(`#${issue.number}: ${r.done}`);
       if (!DRY_RUN) {
-        gh(["issue", "comment", String(issue.number), "-R", OWN_REPO, "--body", `⏹️ ${r.done}`]);
+        gh(["issue", "comment", String(issue.number), "-R", OWN_REPO, "--body", r.done.startsWith("⚪") ? r.done : `⏹️ ${r.done}`]);
         gh(["issue", "close", String(issue.number), "-R", OWN_REPO]);
       }
       continue;
@@ -167,7 +178,7 @@ function startReady() {
     if (!DRY_RUN) {
       gh(runArgs);
       gh(["issue", "edit", String(issue.number), "-R", OWN_REPO, "--remove-label", WAITING]);
-      gh(["issue", "comment", String(issue.number), "-R", OWN_REPO, "--body", `▶️ Snoken er startet. ${r.note ?? ""}`]);
+      gh(["issue", "comment", String(issue.number), "-R", OWN_REPO, "--body", `▶️ Startet. ${r.note ?? ""}`]);
     }
     started++;
   }

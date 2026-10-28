@@ -29,17 +29,26 @@ const env = envName();
 const cfg = loadEnvConfig(env);
 
 // Hemmelige headere per sti-prefiks (samme fordeling som K6-klientene: register- og authorization-nøkkel).
-export type HeaderRule = { pathPrefix: string; headers: Record<string, string> };
+// `secretName` brukes som plassholder i reproduksjonssteg (curl) - verdien vises aldri.
+export type HeaderRule = { pathPrefix: string; headers: Record<string, string>; secretName: string };
 export type ApiTarget = { baseUrl: URL; description: string; headerRules: HeaderRule[] };
 
 const SUBSCRIPTION_HEADER = "Ocp-Apim-Subscription-Key";
 const builtIn = builtInApis(env);
 const platformRules: HeaderRule[] = [];
 if (cfg.REGISTER_SUBSCRIPTION_KEY) {
-  platformRules.push({ pathPrefix: "/register/", headers: { [SUBSCRIPTION_HEADER]: cfg.REGISTER_SUBSCRIPTION_KEY } });
+  platformRules.push({
+    pathPrefix: "/register/",
+    headers: { [SUBSCRIPTION_HEADER]: cfg.REGISTER_SUBSCRIPTION_KEY },
+    secretName: "REGISTER_SUBSCRIPTION_KEY",
+  });
 }
 if (cfg.AUTHORIZATION_SUBSCRIPTION_KEY) {
-  platformRules.push({ pathPrefix: "/authorization/", headers: { [SUBSCRIPTION_HEADER]: cfg.AUTHORIZATION_SUBSCRIPTION_KEY } });
+  platformRules.push({
+    pathPrefix: "/authorization/",
+    headers: { [SUBSCRIPTION_HEADER]: cfg.AUTHORIZATION_SUBSCRIPTION_KEY },
+    secretName: "AUTHORIZATION_SUBSCRIPTION_KEY",
+  });
 }
 
 const apis: Record<string, ApiTarget> = {

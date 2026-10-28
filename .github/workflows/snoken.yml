@@ -99,11 +99,10 @@ jobs:
         if: success()
         run: |
           {
-            echo "### 🕵️ Snoken har snoket i \`${{ steps.charter.outputs.env }}\`"
-            echo
             head -c 60000 reports/latest.md
             echo
-            echo "<sub>[Kjøringen](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})</sub>"
+            echo
+            echo "<sub>[logg](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})</sub>"
           } > comment.md
           cat comment.md >> "$GITHUB_STEP_SUMMARY"
           if [ -n "$NUMBER" ]; then

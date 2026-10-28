@@ -54,15 +54,26 @@ const HttpInput = z.object({
   why: z.string(),
 });
 
+// Loggen er fasiten i rapporten: funn og akseptansekriterier viser til kall-ID-er, og
+// forespørsel/svar hentes herfra - ikke fra det modellen skriver. Alt er renset for hemmeligheter.
 export type HttpLogEntry = {
+  id: number;
   user: string;
+  auth: string; // beskrivelse av tokenet (plassholder i curl), aldri selve tokenet
   api: string;
   method: string;
   path: string;
+  url: string;
+  requestHeaders: Record<string, string>; // inkl. plassholdere for hemmelige headere
+  requestBody?: string;
   status: number | "feil";
+  contentType?: string;
+  responseExcerpt: string;
   why: string;
   ms: number;
 };
+
+const RESPONSE_EXCERPT_CHARS = 1500;
 
 export async function runHttpRequest(
   rawInput: unknown,
@@ -113,6 +124,31 @@ export async function runHttpRequest(
     .filter((rule) => relativePath.startsWith(rule.pathPrefix))
     .flatMap((rule) => Object.entries(rule.headers));
 
+  const id = log.length + 1;
+  const auth = user.enterprise
+    ? `<virksomhetstoken: GetEnterpriseToken org=${user.enterprise.org} orgNo=${user.enterprise.orgNo} scopes="${user.enterprise.scopes}" env=${config.env}>`
+    : `<sluttbrukertoken: GetPersonalToken env=${config.env} for testbruker ${user.alias} (${[user.userId && `userId=${user.userId}`, user.partyUuid && `partyuuid=${user.partyUuid}`].filter(Boolean).join(" ") || user.category})>`;
+  const loggedHeaders: Record<string, string> = Object.fromEntries(headers.entries());
+  for (const rule of api.headerRules.filter((r) => relativePath.startsWith(r.pathPrefix))) {
+    for (const name of Object.keys(rule.headers)) loggedHeaders[name] = `<${rule.secretName}>`;
+  }
+  const entry = (status: number | "feil", responseExcerpt: string, contentType?: string): HttpLogEntry => ({
+    id,
+    user: user.alias,
+    auth,
+    api: input.api,
+    method: input.method,
+    path: input.path,
+    url: url.href,
+    requestHeaders: loggedHeaders,
+    requestBody: input.body && redact(input.body),
+    status,
+    contentType,
+    responseExcerpt: redact(responseExcerpt.slice(0, RESPONSE_EXCERPT_CHARS)),
+    why: input.why,
+    ms: Date.now() - started,
+  });
+
   const started = Date.now();
   try {
     headers.set("authorization", `Bearer ${await getToken(user)}`);
@@ -126,7 +162,7 @@ export async function runHttpRequest(
       signal: AbortSignal.timeout(30_000),
     });
     const text = await res.text();
-    log.push({ user: user.alias, api: input.api, method: input.method, path: input.path, status: res.status, why: input.why, ms: Date.now() - started });
+    log.push(entry(res.status, text, res.headers.get("content-type") ?? undefined));
 
     const shownHeaders = ["content-type", "location", "www-authenticate"]
       .map((h) => [h, res.headers.get(h)] as const)
@@ -139,16 +175,18 @@ export async function runHttpRequest(
         : text;
 
     return {
-      content: redact(`HTTP ${res.status} ${res.statusText} (${Date.now() - started} ms)\n${shownHeaders}\n\n${body}`),
+      content: redact(`Kall #${id}: HTTP ${res.status} ${res.statusText} (${Date.now() - started} ms)\n${shownHeaders}\n\n${body}`),
       isError: false,
     };
   } catch (err) {
-    log.push({ user: user.alias, api: input.api, method: input.method, path: input.path, status: "feil", why: input.why, ms: Date.now() - started });
-    return { content: redact(`Nettverksfeil: ${(err as Error).message}`), isError: true };
+    log.push(entry("feil", (err as Error).message));
+    return { content: redact(`Kall #${id}: nettverksfeil: ${(err as Error).message}`), isError: true };
   }
 }
 
-// Belte og bukseseler: fjern hemmeligheter hvis appen skulle speile dem tilbake.
+// Fjern hemmeligheter hvis API-et speiler dem tilbake. Markøren er bevisst tydelig: at et svar inneholder
+// tokenet eller en nøkkel er i seg selv et funn (lekkasje), så Snoken må kunne se AT det skjedde.
+export const SECRET_MARKER = "[SNOKEN: HEMMELIGHET FJERNET - API-ET RETURNERTE DENNE]";
 function redact(text: string): string {
-  return secretsToRedact().reduce((t, secret) => t.replaceAll(secret, "[REDACTED]"), text);
+  return secretsToRedact().reduce((t, secret) => t.replaceAll(secret, SECRET_MARKER), text);
 }

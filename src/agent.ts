@@ -5,12 +5,12 @@ import { systemPrompt } from "./prompts.js";
 import { addConfiguredUser, describeUser, knownUsers } from "./testusers.js";
 import { httpRequestTool, runHttpRequest, type HttpLogEntry } from "./tools/http.js";
 import {
-  recordNoteTool,
+  recordCheckTool,
   reportFindingTool,
-  runRecordNote,
+  runRecordCheck,
   runReportFinding,
+  type SessionCheck,
   type SessionFinding,
-  type SessionNote,
 } from "./tools/session.js";
 import {
   pickTestUserTool,
@@ -27,7 +27,7 @@ import {
 
 export type SessionResult = {
   summary: string;
-  notes: SessionNote[];
+  checks: SessionCheck[];
   findings: SessionFinding[];
   httpLog: HttpLogEntry[];
   users: string[];
@@ -38,10 +38,10 @@ export type SessionResult = {
 };
 
 const client = new Anthropic();
-const tools = [pickTestUserTool, useServiceOwnerTool, switchUserTool, httpRequestTool, recordNoteTool, reportFindingTool];
+const tools = [pickTestUserTool, useServiceOwnerTool, switchUserTool, httpRequestTool, recordCheckTool, reportFindingTool];
 
 export async function runSession(charter: string): Promise<SessionResult> {
-  const notes: SessionNote[] = [];
+  const checks: SessionCheck[] = [];
   const findings: SessionFinding[] = [];
   const httpLog: HttpLogEntry[] = [];
   const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
@@ -107,7 +107,7 @@ export async function runSession(charter: string): Promise<SessionResult> {
     const results: Anthropic.Beta.BetaContentBlockParam[] = [];
     for (const use of toolUses) {
       steps++;
-      const outcome = await executeTool(use, { notes, findings, httpLog });
+      const outcome = await executeTool(use, { checks, findings, httpLog });
       logToolCall(use, outcome.isError);
       results.push({
         type: "tool_result",
@@ -136,7 +136,7 @@ export async function runSession(charter: string): Promise<SessionResult> {
 
   return {
     summary,
-    notes,
+    checks,
     findings,
     httpLog,
     users: knownUsers().map(describeUser),
@@ -149,7 +149,7 @@ export async function runSession(charter: string): Promise<SessionResult> {
 
 async function executeTool(
   use: Anthropic.Beta.BetaToolUseBlock,
-  state: { notes: SessionNote[]; findings: SessionFinding[]; httpLog: HttpLogEntry[] },
+  state: { checks: SessionCheck[]; findings: SessionFinding[]; httpLog: HttpLogEntry[] },
 ): Promise<{ content: string; isError: boolean }> {
   switch (use.name) {
     case "pick_test_user":
@@ -160,10 +160,10 @@ async function executeTool(
       return runUseServiceOwner(use.input);
     case "http_request":
       return runHttpRequest(use.input, state.httpLog);
-    case "record_note":
-      return runRecordNote(use.input, state.notes);
+    case "record_check":
+      return runRecordCheck(use.input, state.checks, state.httpLog);
     case "report_finding":
-      return runReportFinding(use.input, state.findings);
+      return runReportFinding(use.input, state.findings, state.httpLog);
     default:
       return { content: `Ukjent verktøy: ${use.name}`, isError: true };
   }
@@ -182,6 +182,8 @@ function logToolCall(use: Anthropic.Beta.BetaToolUseBlock, isError: boolean) {
             ? `🏛️ tjenesteeier ${input.owner} (${(input.scopes as string[]).join(", ")})`
             : use.name === "switch_user"
             ? `👤 bytter til ${input.alias}`
-            : `📝 [${input.kind}] ${input.text}`;
+            : use.name === "record_check"
+              ? `📋 [${input.result}] ${input.criterion}`
+              : `${use.name}`;
   console.log(`${isError ? "⚠️ " : "→ "} ${label}`);
 }
