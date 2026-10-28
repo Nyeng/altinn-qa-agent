@@ -94,12 +94,18 @@ export async function runHttpRequest(
   // Modellen får ikke sette auth eller noen av de hemmelige headerne selv.
   const headers = new Headers(input.headers);
   headers.delete("authorization");
-  for (const name of Object.keys(api.headers)) headers.delete(name);
+  for (const rule of api.headerRules) for (const name of Object.keys(rule.headers)) headers.delete(name);
+
+  // Hemmelige headere for denne stien (f.eks. register- vs. authorization-nøkkel på platform).
+  const relativePath = `/${input.path.replace(/^\/+/, "")}`;
+  const secretHeaders = api.headerRules
+    .filter((rule) => relativePath.startsWith(rule.pathPrefix))
+    .flatMap((rule) => Object.entries(rule.headers));
 
   const started = Date.now();
   try {
     headers.set("authorization", `Bearer ${await getToken()}`);
-    for (const [name, value] of Object.entries(api.headers)) headers.set(name, value);
+    for (const [name, value] of secretHeaders) headers.set(name, value);
 
     const res = await fetch(url, {
       method: input.method,

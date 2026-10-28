@@ -28,9 +28,19 @@ Token hentes fra Altinn test token generator (`GetPersonalToken`) for testbruker
 
 ### Konfig per miljø
 
-Alt miljøspesifikt ligger i **én JSON per miljø** (se [`configs/example.json`](configs/example.json)):
-`testUser` (pid og ev. userId/partyId/partyUuid), `apiHeaders` (hemmelige headere per API, f.eks.
-`Ocp-Apim-Subscription-Key`) og ev. ekstra `apis`.
+Alt miljøspesifikt ligger i **én JSON per miljø**, i **samme format som K6-miljøene** i
+`altinn-platform-validation-tests` (se [`configs/example.json`](configs/example.json)):
+
+| Nøkkel | Brukes til |
+|---|---|
+| `BASE_URL`, `AM_UI_BASE_URL` | API-ene `platform` og `am-bff` (valgfrie, ellers standard-URL for miljøet) |
+| `REGISTER_SUBSCRIPTION_KEY` | `Ocp-Apim-Subscription-Key` på `platform` `/register/...` |
+| `AUTHORIZATION_SUBSCRIPTION_KEY` | `Ocp-Apim-Subscription-Key` på `platform` `/authorization/...` |
+| `TEST_USER_PID` (påkrevd), `TEST_USER_ID`, `TEST_PARTY_ID`, `TEST_PARTY_UUID` | Testbrukeren Snoken opptrer som |
+| `QA_MAX_STEPS`, `QA_ALLOW_DELETE` | Valgfrie grenser |
+
+Andre nøkler (f.eks. `SOAP_ER_*`) ignoreres, men behandles som hemmelige og vaskes ut.
+URL-ene må høre til miljøet som velges, ellers stopper Snoken.
 
 | Hvor | Felles | Per miljø |
 |---|---|---|

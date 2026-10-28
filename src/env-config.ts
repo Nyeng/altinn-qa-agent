@@ -1,37 +1,34 @@
-// Én JSON-konfig per miljø, med alt som hører til miljøet (inkl. hemmeligheter).
+// Én JSON-konfig per miljø, i samme format som K6-miljøene i altinn-platform-validation-tests,
+// pluss testbrukeren Snoken skal opptre som.
 //   CI:     secret QA_CONFIG_AT22 / QA_CONFIG_AT23 / QA_CONFIG_TT02 (hele JSON-en som verdi)
 //   Lokalt: configs/at22.json osv. (gitignored) - se configs/example.json
-// Miljøvariabelen vinner over filen hvis begge finnes.
+// Miljøvariabelen vinner over filen hvis begge finnes. Ukjente nøkler (f.eks. SOAP_ER_*) ignoreres,
+// men alle strengverdier behandles som hemmelige og maskeres/vaskes ut.
 import { existsSync, readFileSync } from "node:fs";
 import { z } from "zod";
 import type { EnvName } from "./environments.js";
 
-const Headers = z.record(z.string(), z.string()).default({});
+const EnvConfig = z
+  .object({
+    // Fra K6-oppsettet. Utelates de, brukes standard-URL-ene for miljøet.
+    BASE_URL: z.string().url().optional(), // https://platform.<miljø>
+    AM_UI_BASE_URL: z.string().url().optional(), // https://am.ui.<miljø>
+    REGISTER_SUBSCRIPTION_KEY: z.string().optional(), // brukes for platform /register/...
+    AUTHORIZATION_SUBSCRIPTION_KEY: z.string().optional(), // brukes for platform /authorization/...
 
-const EnvConfig = z.object({
-  // Testbrukeren agenten opptrer som. Token hentes fra Altinn test token generator
-  // (GetPersonalToken, samme som platform-validation-tests). Brukernavn/passord er felles:
-  // TOKEN_GENERATOR_USERNAME / TOKEN_GENERATOR_PASSWORD.
-  testUser: z.object({
-    pid: z.string(),
-    userId: z.string().optional(),
-    partyId: z.string().optional(),
-    partyUuid: z.string().optional(),
-    scopes: z.string().default("altinn:portal/enduser"),
-    authLvl: z.string().default("3"),
-  }),
-  // Hemmelige headere per API, f.eks. { "platform": { "Ocp-Apim-Subscription-Key": "..." } }
-  apiHeaders: z.record(z.string(), Headers).default({}),
-  // Ekstra API-er (må ligge i et Altinn-testmiljø - håndheves i koden).
-  apis: z
-    .record(
-      z.string().regex(/^[a-z][a-z0-9-]*$/, "API-navn: små bokstaver, tall og bindestrek"),
-      z.object({ baseUrl: z.string().url(), description: z.string().default(""), headers: Headers }),
-    )
-    .default({}),
-  maxSteps: z.number().int().positive().optional(),
-  allowDelete: z.boolean().default(false),
-});
+    // Testbrukeren (sluttbruker). Token hentes fra Altinn test token generator (GetPersonalToken).
+    TEST_USER_PID: z.string(),
+    TEST_USER_ID: z.string().optional(),
+    TEST_PARTY_ID: z.string().optional(),
+    TEST_PARTY_UUID: z.string().optional(),
+    TEST_USER_SCOPES: z.string().default("altinn:portal/enduser"),
+    TEST_USER_AUTH_LVL: z.string().default("3"),
+
+    // Snoken-innstillinger
+    QA_MAX_STEPS: z.coerce.number().int().positive().optional(),
+    QA_ALLOW_DELETE: z.union([z.boolean(), z.enum(["true", "false"])]).optional(),
+  })
+  .passthrough();
 
 export type EnvConfig = z.infer<typeof EnvConfig>;
 
@@ -67,11 +64,12 @@ function maskInGitHubActions(cfg: EnvConfig) {
   }
 }
 
-// Alle hemmelige verdier i konfigen: PID og alle header-verdier.
+// Alt som er hemmelig: alle strengverdier unntatt URL-er og ikke-sensitive innstillinger.
+// (Bedre å vaske ut for mye enn for lite - også ukjente nøkler som SOAP_ER_PASSWORD.)
+const NOT_SECRET = new Set(["BASE_URL", "AM_UI_BASE_URL", "TEST_USER_SCOPES", "TEST_USER_AUTH_LVL", "QA_MAX_STEPS", "QA_ALLOW_DELETE"]);
+
 export function secretValues(cfg: EnvConfig): string[] {
-  return [
-    cfg.testUser.pid,
-    ...Object.values(cfg.apiHeaders).flatMap((h) => Object.values(h)),
-    ...Object.values(cfg.apis).flatMap((api) => Object.values(api.headers)),
-  ].filter((v): v is string => Boolean(v));
+  return Object.entries(cfg)
+    .filter(([key, value]) => !NOT_SECRET.has(key) && typeof value === "string" && value.length >= 4)
+    .map(([, value]) => value as string);
 }

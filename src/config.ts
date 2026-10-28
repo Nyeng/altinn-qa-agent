@@ -1,7 +1,7 @@
 // Felles innstillinger kommer fra miljøvariabler, alt miljøspesifikt fra én JSON per miljø
 // (se env-config.ts). Hemmeligheter brukes kun av verktøyene - de sendes aldri til Claude.
 import { loadEnvConfig, secretValues } from "./env-config.js";
-import { assertAllowedHost, builtInApis, isEnvName, type EnvName } from "./environments.js";
+import { assertAllowedHost, builtInApis, ENVIRONMENTS, isEnvName, type EnvName } from "./environments.js";
 import { assertAllowedRepository } from "./guard.js";
 
 assertAllowedRepository();
@@ -26,28 +26,62 @@ function envName(): EnvName {
 }
 
 const env = envName();
-const envConfig = loadEnvConfig(env);
+const cfg = loadEnvConfig(env);
 
-export type ApiTarget = { baseUrl: URL; description: string; headers: Record<string, string> };
-const apis: Record<string, ApiTarget> = {};
-for (const [name, api] of Object.entries(builtInApis(env))) {
-  apis[name] = { ...api, baseUrl: new URL(api.baseUrl), headers: envConfig.apiHeaders[name] ?? {} };
+// Hemmelige headere per sti-prefiks (samme fordeling som K6-klientene: register- og authorization-nøkkel).
+export type HeaderRule = { pathPrefix: string; headers: Record<string, string> };
+export type ApiTarget = { baseUrl: URL; description: string; headerRules: HeaderRule[] };
+
+const SUBSCRIPTION_HEADER = "Ocp-Apim-Subscription-Key";
+const builtIn = builtInApis(env);
+const platformRules: HeaderRule[] = [];
+if (cfg.REGISTER_SUBSCRIPTION_KEY) {
+  platformRules.push({ pathPrefix: "/register/", headers: { [SUBSCRIPTION_HEADER]: cfg.REGISTER_SUBSCRIPTION_KEY } });
 }
-for (const [name, api] of Object.entries(envConfig.apis)) {
-  if (name in apis) throw new Error(`API-navnet "${name}" er innebygd - bruk apiHeaders for å gi det nøkler`);
-  apis[name] = { ...api, baseUrl: new URL(api.baseUrl) };
+if (cfg.AUTHORIZATION_SUBSCRIPTION_KEY) {
+  platformRules.push({ pathPrefix: "/authorization/", headers: { [SUBSCRIPTION_HEADER]: cfg.AUTHORIZATION_SUBSCRIPTION_KEY } });
 }
-for (const api of Object.values(apis)) assertAllowedHost(api.baseUrl);
+
+const apis: Record<string, ApiTarget> = {
+  platform: {
+    baseUrl: new URL(cfg.BASE_URL ? new URL(cfg.BASE_URL).origin : builtIn.platform.baseUrl),
+    description: builtIn.platform.description,
+    headerRules: platformRules,
+  },
+  "am-bff": {
+    baseUrl: new URL(
+      cfg.AM_UI_BASE_URL ? `${new URL(cfg.AM_UI_BASE_URL).origin}/accessmanagement/api/v1` : builtIn["am-bff"].baseUrl,
+    ),
+    description: builtIn["am-bff"].description,
+    headerRules: [],
+  },
+};
+
+// Alle verter må være Altinn-testmiljøer, og høre til miljøet som er valgt (ikke en at22-konfig mot tt02).
+for (const api of Object.values(apis)) {
+  assertAllowedHost(api.baseUrl);
+  const domain = ENVIRONMENTS[env].domain;
+  if (!api.baseUrl.hostname.endsWith(`.${domain}`)) {
+    throw new Error(`Konfigen for ${env} peker til ${api.baseUrl.hostname}, som ikke hører til ${domain}`);
+  }
+}
 
 export const config = {
   model: process.env.QA_MODEL ?? "claude-opus-5-5",
   effort: effort(),
-  maxSteps: envConfig.maxSteps ?? Number(process.env.QA_MAX_STEPS ?? 40),
+  maxSteps: cfg.QA_MAX_STEPS ?? Number(process.env.QA_MAX_STEPS ?? 40),
   env,
   target: {
-    allowDelete: envConfig.allowDelete,
+    allowDelete: String(cfg.QA_ALLOW_DELETE) === "true",
     apis,
   },
-  testUser: envConfig.testUser,
-  secrets: secretValues(envConfig),
+  testUser: {
+    pid: cfg.TEST_USER_PID,
+    userId: cfg.TEST_USER_ID,
+    partyId: cfg.TEST_PARTY_ID,
+    partyUuid: cfg.TEST_PARTY_UUID,
+    scopes: cfg.TEST_USER_SCOPES,
+    authLvl: cfg.TEST_USER_AUTH_LVL,
+  },
+  secrets: secretValues(cfg),
 };

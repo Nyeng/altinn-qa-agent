@@ -1,20 +1,14 @@
 {
-  "testUser": {
-    "pid": "<testbrukerens fødselsnummer (Tenor/syntetisk)>",
-    "userId": "",
-    "partyId": "",
-    "partyUuid": "",
-    "scopes": "altinn:portal/enduser",
-    "authLvl": "3"
-  },
+  "BASE_URL": "https://platform.at22.altinn.cloud",
+  "AM_UI_BASE_URL": "https://am.ui.at22.altinn.cloud",
+  "AUTHORIZATION_SUBSCRIPTION_KEY": "<samme som i K6>",
+  "REGISTER_SUBSCRIPTION_KEY": "<samme som i K6>",
 
-  "apiHeaders": {
-    "platform": { "Ocp-Apim-Subscription-Key": "<REGISTER_SUBSCRIPTION_KEY for miljøet>" },
-    "am-bff": {}
-  },
+  "TEST_USER_PID": "<syntetisk fnr for testbrukeren>",
+  "TEST_USER_ID": "",
+  "TEST_PARTY_ID": "",
+  "TEST_PARTY_UUID": "",
 
-  "apis": {},
-
-  "maxSteps": 40,
-  "allowDelete": false
+  "QA_MAX_STEPS": 40,
+  "QA_ALLOW_DELETE": false
 }
