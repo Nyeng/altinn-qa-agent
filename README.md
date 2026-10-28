@@ -83,7 +83,11 @@ i miljøkonfigen.
 
 **Fra altinn-auth via polling (nå):** skriv `/snoken at22 <charter>` som kommentar på en PR eller issue i
 Altinn/altinn-auth. [`snoken-polling.yml`](.github/workflows/snoken-polling.yml) sjekker hver time i arbeidstiden
-(07–16 norsk vintertid, man–fre), lager en issue her med lenke tilbake, og Snoken svarer i den. PR-diffen tas med
+(07–16 norsk vintertid, man–fre), lager en issue her med lenke tilbake, og Snoken svarer i den.
+Gjelder det en PR, venter Snoken til koden er **klar til test**: PR-en er merget og merge-commiten er deployet til
+miljøet (GitHub-deployments som `authorization/at22`, regnet som ute 10 min etter registrering). For apper uten
+deployment-sporing (f.eks. resource-registry i dag) startes økten 10 min etter merge, med en merknad i rapporten.
+Du kan derfor tagge PR-en med en gang – også før review. PR-diffen tas med
 automatisk, og «maks N steg» i teksten setter grensen. Kun kommentarer fra `vars.SNOKEN_ALLOWED_USERS`
 (standard `Nyeng`) teller, maks 3 økter per time, og ingenting skrives til altinn-auth.
 

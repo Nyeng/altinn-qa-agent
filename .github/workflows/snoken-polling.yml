@@ -1,5 +1,9 @@
-# Ser etter "/snoken"-kommentarer i Altinn/altinn-auth én gang i timen og starter Snoken for dem.
+# Ser etter "/snoken"-kommentarer i Altinn/altinn-auth én gang i timen og starter Snoken når koden er klar til test.
 # Rapporten havner som issue her - ingenting skrives til altinn-auth.
+#
+# Klar til test (PR-er): merget OG deployet til miljøet (deployments i GitHub, f.eks. authorization/at22,
+# regnes som ute 10 min etter registrering). Apper uten deployment-sporing: 10 min etter merge, med merknad.
+# Endre ventetiden med vars.SNOKEN_DEPLOY_DELAY_MINUTES.
 #
 #   Skriv på en PR/issue i altinn-auth:   /snoken at22 Test trim av orgnr, maks 6 steg
 #
@@ -31,6 +35,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       SNOKEN_ALLOWED_USERS: ${{ vars.SNOKEN_ALLOWED_USERS || 'Nyeng' }}
+      SNOKEN_DEPLOY_DELAY_MINUTES: ${{ vars.SNOKEN_DEPLOY_DELAY_MINUTES || '10' }}
     steps:
       - uses: actions/checkout@v4
         with:
