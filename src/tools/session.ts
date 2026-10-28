@@ -5,7 +5,7 @@ import { z } from "zod";
 // Strukturen (strict: true + zod) gjør at rapporten kan genereres uten å parse fritekst.
 
 const Note = z.object({
-  kind: z.enum(["observasjon", "spørsmål", "risiko", "ide"]),
+  kind: z.enum(["observasjon", "spørsmål", "risiko", "ide", "pirk"]),
   text: z.string(),
 });
 
@@ -24,13 +24,14 @@ export type SessionFinding = z.infer<typeof Finding>;
 export const recordNoteTool: Anthropic.Beta.BetaTool = {
   name: "record_note",
   description:
-    "Før et øktnotat: noe du observerte, et åpent spørsmål, en risiko eller en ide til videre testing. " +
+    "Før et øktnotat: noe du observerte, et åpent spørsmål, en risiko, en ide til videre testing, " +
+    "eller en pirk (avvik fra konvensjoner/standarder som ikke er en ekte feil). " +
     "Bruk dette fortløpende - notatene er en del av leveransen.",
   strict: true,
   input_schema: {
     type: "object",
     properties: {
-      kind: { type: "string", enum: ["observasjon", "spørsmål", "risiko", "ide"] },
+      kind: { type: "string", enum: ["observasjon", "spørsmål", "risiko", "ide", "pirk"] },
       text: { type: "string" },
     },
     required: ["kind", "text"],

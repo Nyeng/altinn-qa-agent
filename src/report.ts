@@ -12,7 +12,8 @@ export function renderReport(charter: string, result: SessionResult, meta: { mod
       `**Forventet:** ${f.expected}\n\n**Faktisk:** ${f.actual}\n\n` +
       `**Bevis**\n\n\`\`\`\n${f.evidence}\n\`\`\`\n`,
   );
-  const notes = result.notes.map((n) => `- **${n.kind}:** ${n.text}`);
+  const notes = result.notes.filter((n) => n.kind !== "pirk").map((n) => `- **${n.kind}:** ${n.text}`);
+  const nitpicks = result.notes.filter((n) => n.kind === "pirk").map((n) => `- ${n.text}`);
   const http = result.httpLog.map((h) => `| ${h.api} | ${h.method} | \`${h.path}\` | ${h.status} | ${h.ms} | ${h.why} |`);
 
   return [
@@ -23,6 +24,7 @@ export function renderReport(charter: string, result: SessionResult, meta: { mod
     `## Oppsummering\n\n${result.summary || "_Ingen oppsummering._"}\n`,
     section(`Funn (${result.findings.length})`, findings),
     section("Notater", notes),
+    section(`🤓 Snokens pirkeliste (${nitpicks.length})`, nitpicks),
     section("HTTP-logg", http.length ? ["| API | Metode | Sti | Status | ms | Hvorfor |", "|---|---|---|---|---|---|", ...http] : []),
   ].join("\n");
 }
