@@ -2,10 +2,11 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { getToken, secretsToRedact } from "../auth.js";
 import { config } from "../config.js";
+import { assertAllowedHost } from "../environments.js";
 
 // Uke 1: agentens eneste "hender" er HTTP mot appens API.
 // Sikkerhet ligger i koden, ikke i prompten:
-//  - kun API-ene i miljøets konfig (appen + `apis`) er lov, og prod er sperret
+//  - kun API-ene i miljøets konfig er lov, og kun verter i Altinns testmiljøer (hardkodet)
 //  - token og hemmelige headere (API-nøkler) legges på her, og vaskes ut av alt som går tilbake til Claude
 //  - DELETE er av med mindre QA_ALLOW_DELETE=true
 
@@ -20,14 +21,14 @@ export const httpRequestTool: Anthropic.Beta.BetaTool = {
   name: "http_request",
   description:
     "Send en HTTP-forespørsel til et av API-ene du har tilgang til. `path` er relativ til API-ets base-URL " +
-    `(f.eks. ${config.target.appPath}/api/v1/applicationmetadata for "app"). ` +
+    '(f.eks. /accessmanagement/api/v1/enduser/authorizedparties for "platform"). ' +
     "Autentisering og API-nøkler legges på automatisk - ikke send dem selv. " +
     "Returnerer status, utvalgte headere og body (avkortet ved behov).\n\nTilgjengelige API-er:\n" +
     apiList,
   input_schema: {
     type: "object",
     properties: {
-      api: { type: "string", enum: apiNames, description: 'Hvilket API (standard "app")' },
+      api: { type: "string", enum: apiNames, description: "Hvilket API" },
       method: { type: "string", enum: ["GET", "POST", "PUT", "PATCH", "DELETE"] },
       path: { type: "string", description: "Sti relativ til base-URL, må starte med /" },
       headers: {
@@ -44,7 +45,7 @@ export const httpRequestTool: Anthropic.Beta.BetaTool = {
 };
 
 const HttpInput = z.object({
-  api: z.string().default("app"),
+  api: z.string(),
   method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
   path: z.string().startsWith("/"),
   headers: z.record(z.string(), z.string()).optional(),
@@ -84,6 +85,11 @@ export async function runHttpRequest(
   if (url.host !== api.baseUrl.host) {
     return { content: `Avvist: ${url.host} er utenfor tillatt vert.`, isError: true };
   }
+  try {
+    assertAllowedHost(url);
+  } catch (err) {
+    return { content: (err as Error).message, isError: true };
+  }
 
   // Modellen får ikke sette auth eller noen av de hemmelige headerne selv.
   const headers = new Headers(input.headers);
@@ -92,10 +98,7 @@ export async function runHttpRequest(
 
   const started = Date.now();
   try {
-    if (api.useToken) {
-      const token = await getToken();
-      if (token) headers.set("authorization", `Bearer ${token}`);
-    }
+    headers.set("authorization", `Bearer ${await getToken()}`);
     for (const [name, value] of Object.entries(api.headers)) headers.set(name, value);
 
     const res = await fetch(url, {

@@ -13,7 +13,7 @@ if (!charterPath) {
 
 const charter = await readFile(charterPath, "utf8");
 const started = new Date();
-console.log(`🔎 Starter økt i ${config.env} mot ${config.target.baseUrl.origin}${config.target.appPath} med ${config.model} (maks ${config.maxSteps} steg)\n`);
+console.log(`🔎 Starter økt i ${config.env} (API-er: ${Object.keys(config.target.apis).join(", ")}) med ${config.model} (maks ${config.maxSteps} steg)\n`);
 
 const result = await runSession(charter);
 

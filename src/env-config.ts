@@ -6,36 +6,27 @@ import { existsSync, readFileSync } from "node:fs";
 import { z } from "zod";
 import type { EnvName } from "./environments.js";
 
+const Headers = z.record(z.string(), z.string()).default({});
+
 const EnvConfig = z.object({
-  org: z.string(),
-  app: z.string(),
-  // Kun for local (app-localtest). For at22/at23/tt02 utledes URL-en fra org.
-  baseUrl: z.string().url().optional(),
-  // Alternativ 1: statisk token
-  token: z.string().optional(),
-  // Alternativ 2: Altinn test token generator - sjekk feltene mot k6-oppsettet deres.
-  // Brukernavn/passord er felles for alle miljøer og hentes fra TOKEN_GENERATOR_USERNAME/PASSWORD.
-  tokenGenerator: z
-    .object({
-      url: z.string().url().default("https://altinn-testtools-token-generator.azurewebsites.net/api/GetPersonalToken"),
-      scopes: z.string().default("altinn:portal/enduser"),
-      userId: z.string().optional(),
-      partyId: z.string().optional(),
-      pid: z.string().optional(),
-    })
-    .optional(),
-  // Hemmelige headere som legges på alle kall til appen (f.eks. API-nøkler).
-  headers: z.record(z.string(), z.string()).default({}),
-  // Andre API-er agenten får teste, med navn. Agenten ser kun navn og beskrivelse.
+  // Testbrukeren agenten opptrer som. Token hentes fra Altinn test token generator
+  // (GetPersonalToken, samme som platform-validation-tests). Brukernavn/passord er felles:
+  // TOKEN_GENERATOR_USERNAME / TOKEN_GENERATOR_PASSWORD.
+  testUser: z.object({
+    pid: z.string(),
+    userId: z.string().optional(),
+    partyId: z.string().optional(),
+    partyUuid: z.string().optional(),
+    scopes: z.string().default("altinn:portal/enduser"),
+    authLvl: z.string().default("3"),
+  }),
+  // Hemmelige headere per API, f.eks. { "platform": { "Ocp-Apim-Subscription-Key": "..." } }
+  apiHeaders: z.record(z.string(), Headers).default({}),
+  // Ekstra API-er (må ligge i et Altinn-testmiljø - håndheves i koden).
   apis: z
     .record(
       z.string().regex(/^[a-z][a-z0-9-]*$/, "API-navn: små bokstaver, tall og bindestrek"),
-      z.object({
-        baseUrl: z.string().url(),
-        description: z.string().default(""),
-        headers: z.record(z.string(), z.string()).default({}),
-        useToken: z.boolean().default(true), // legg på Altinn-token (Bearer) også her?
-      }),
+      z.object({ baseUrl: z.string().url(), description: z.string().default(""), headers: Headers }),
     )
     .default({}),
   maxSteps: z.number().int().positive().optional(),
@@ -47,7 +38,7 @@ export type EnvConfig = z.infer<typeof EnvConfig>;
 export function loadEnvConfig(env: EnvName): EnvConfig {
   const varName = `QA_CONFIG_${env.toUpperCase()}`;
   const file = `configs/${env}.json`;
-  const raw = process.env[varName] ?? (existsSync(file) ? readFileSync(file, "utf8") : undefined);
+  const raw = process.env[varName] || (existsSync(file) ? readFileSync(file, "utf8") : undefined);
   if (!raw) throw new Error(`Fant ingen konfig for ${env}: sett ${varName} eller lag ${file} (se configs/example.json)`);
 
   let json: unknown;
@@ -76,12 +67,11 @@ function maskInGitHubActions(cfg: EnvConfig) {
   }
 }
 
-// Alle hemmelige verdier i konfigen: token, PID og alle header-verdier.
+// Alle hemmelige verdier i konfigen: PID og alle header-verdier.
 export function secretValues(cfg: EnvConfig): string[] {
   return [
-    cfg.token,
-    cfg.tokenGenerator?.pid,
-    ...Object.values(cfg.headers),
+    cfg.testUser.pid,
+    ...Object.values(cfg.apiHeaders).flatMap((h) => Object.values(h)),
     ...Object.values(cfg.apis).flatMap((api) => Object.values(api.headers)),
   ].filter((v): v is string => Boolean(v));
 }

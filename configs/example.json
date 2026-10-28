@@ -1,28 +1,19 @@
 {
-  "org": "ttd",
-  "app": "min-app",
-
-  "token": "",
-
-  "tokenGenerator": {
-    "scopes": "altinn:portal/enduser",
+  "testUser": {
+    "pid": "<testbrukerens fødselsnummer (Tenor/syntetisk)>",
     "userId": "",
     "partyId": "",
-    "pid": ""
+    "partyUuid": "",
+    "scopes": "altinn:portal/enduser",
+    "authLvl": "3"
   },
 
-  "headers": {
-    "Ocp-Apim-Subscription-Key": ""
+  "apiHeaders": {
+    "platform": { "Ocp-Apim-Subscription-Key": "<REGISTER_SUBSCRIPTION_KEY for miljøet>" },
+    "am-bff": {}
   },
 
-  "apis": {
-    "platform-storage": {
-      "baseUrl": "https://platform.at22.altinn.cloud/storage/api/v1",
-      "description": "Altinn Storage (instanser og data på plattformnivå)",
-      "headers": { "Ocp-Apim-Subscription-Key": "" },
-      "useToken": true
-    }
-  },
+  "apis": {},
 
   "maxSteps": 40,
   "allowDelete": false

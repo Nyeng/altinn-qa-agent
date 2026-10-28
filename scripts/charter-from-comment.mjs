@@ -9,13 +9,13 @@ const body = process.env.COMMENT_BODY ?? "";
 
 const afterMention = body.slice(body.indexOf("@qa-agent") + "@qa-agent".length).trim();
 const envMatch = afterMention.match(/^(at22|at23|tt02)\b/i);
-const env = envMatch ? envMatch[1].toLowerCase() : "at22";
+const env = envMatch ? envMatch[1].toLowerCase() : "at23";
 const request = (envMatch ? afterMention.slice(envMatch[0].length) : afterMention).trim();
 
 let charter =
   request ||
-  "Utforsk appens viktigste flyt (opprett instans, fyll ut data, send inn) og se etter " +
-    "valideringshull, uventede statuskoder og feilmeldinger som lekker interne detaljer.";
+  "Utforsk sluttbrukerflyten i tilgangsstyring (autoriserte parter, tilgangspakker, delegeringer) og se etter " +
+    "tilgangskontrollfeil, valideringshull, uventede statuskoder og feilmeldinger som lekker interne detaljer.";
 
 if (process.env.IS_PR === "true") {
   try {

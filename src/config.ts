@@ -1,7 +1,10 @@
 // Felles innstillinger kommer fra miljøvariabler, alt miljøspesifikt fra én JSON per miljø
 // (se env-config.ts). Hemmeligheter brukes kun av verktøyene - de sendes aldri til Claude.
 import { loadEnvConfig, secretValues } from "./env-config.js";
-import { appBaseUrl, assertNotProduction, isEnvName, type EnvName } from "./environments.js";
+import { assertAllowedHost, builtInApis, isEnvName, type EnvName } from "./environments.js";
+import { assertAllowedRepository } from "./guard.js";
+
+assertAllowedRepository();
 
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 type Effort = (typeof EFFORTS)[number];
@@ -17,30 +20,24 @@ function effort(): Effort {
 // Miljø velges med --env=at22 på kommandolinjen, ellers QA_ENV.
 function envName(): EnvName {
   const fromArg = process.argv.find((a) => a.startsWith("--env="))?.slice("--env=".length);
-  const value = fromArg ?? process.env.QA_ENV ?? "local";
-  if (!isEnvName(value)) throw new Error(`Ukjent miljø "${value}" (bruk at22, at23, tt02 eller local)`);
+  const value = fromArg ?? process.env.QA_ENV ?? "at23";
+  if (!isEnvName(value)) throw new Error(`Ukjent miljø "${value}" (bruk at22, at23 eller tt02)`);
   return value;
 }
 
 const env = envName();
 const envConfig = loadEnvConfig(env);
-const baseUrl = appBaseUrl(env, envConfig.org, envConfig.baseUrl);
 
-// "app" er alltid appen som testes; øvrige API-er kommer fra konfigen.
-export type ApiTarget = { baseUrl: URL; description: string; headers: Record<string, string>; useToken: boolean };
-const apis: Record<string, ApiTarget> = {
-  app: {
-    baseUrl,
-    description: `Altinn-appen som testes (stier starter med /${envConfig.org}/${envConfig.app})`,
-    headers: envConfig.headers,
-    useToken: true,
-  },
-};
+export type ApiTarget = { baseUrl: URL; description: string; headers: Record<string, string> };
+const apis: Record<string, ApiTarget> = {};
+for (const [name, api] of Object.entries(builtInApis(env))) {
+  apis[name] = { ...api, baseUrl: new URL(api.baseUrl), headers: envConfig.apiHeaders[name] ?? {} };
+}
 for (const [name, api] of Object.entries(envConfig.apis)) {
-  if (name === "app") throw new Error('API-navnet "app" er reservert');
+  if (name in apis) throw new Error(`API-navnet "${name}" er innebygd - bruk apiHeaders for å gi det nøkler`);
   apis[name] = { ...api, baseUrl: new URL(api.baseUrl) };
 }
-for (const api of Object.values(apis)) assertNotProduction(api.baseUrl);
+for (const api of Object.values(apis)) assertAllowedHost(api.baseUrl);
 
 export const config = {
   model: process.env.QA_MODEL ?? "claude-opus-5-5",
@@ -48,14 +45,9 @@ export const config = {
   maxSteps: envConfig.maxSteps ?? Number(process.env.QA_MAX_STEPS ?? 40),
   env,
   target: {
-    baseUrl,
-    appPath: `/${envConfig.org}/${envConfig.app}`,
     allowDelete: envConfig.allowDelete,
     apis,
   },
-  auth: {
-    token: envConfig.token,
-    tokenGenerator: envConfig.tokenGenerator,
-  },
+  testUser: envConfig.testUser,
   secrets: secretValues(envConfig),
 };

@@ -1,9 +1,11 @@
-# Start en utforskende testøkt ved å kommentere på en issue eller PR:
+# Kopieres til Altinn/altinn-auth: .github/workflows/qa-agent.yml
 #
-#   @qa-agent at22 Utforsk innsending av skjema med ugyldige datoer
+# Start en utforskende testøkt ved å kommentere på en issue eller PR i altinn-auth:
 #
-# Miljø: at22 | at23 | tt02 (standard at22). Resten av kommentaren blir charteret.
-# På en PR legges diffen ved som kontekst, så agenten kan fokusere på det som er endret.
+#   @qa-agent at23 Utforsk delegering av tilgangspakker til en annen person
+#
+# Miljø: at22 | at23 | tt02 (standard at23). Resten av kommentaren blir charteret.
+# På en PR legges diffen ved som kontekst.
 
 name: QA-agent
 
@@ -18,11 +20,14 @@ permissions:
 
 jobs:
   explore:
-    # Kun personer med skrivetilgang kan starte økter (de bruker secrets og koster penger).
+    # Lås 1: kun dette repoet. Lås 2: kun org-medlemmer (secrets og API-kreditt).
     if: >-
+      github.repository == 'Altinn/altinn-auth' &&
       contains(github.event.comment.body, '@qa-agent') &&
-      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+      contains(fromJSON('["OWNER","MEMBER"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
+    # Lås 3: alle secrets ligger i dette Environment-et (kun main, ev. med påkrevde godkjennere).
+    environment: qa-agent
     timeout-minutes: 30
     concurrency:
       group: qa-agent-${{ github.event.issue.number }}
@@ -37,32 +42,43 @@ jobs:
       - name: Kvitter med 👀
         run: gh api "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions" -f content=eyes
 
-      - uses: actions/checkout@v4
+      - name: Hent QA-agenten
+        uses: actions/checkout@v4
+        with:
+          repository: Nyeng/altinn-qa-agent
+          # Pinn gjerne til en commit-SHA i vars.QA_AGENT_REF for å unngå uventede endringer.
+          ref: ${{ vars.QA_AGENT_REF || 'main' }}
+          token: ${{ secrets.QA_AGENT_REPO_TOKEN }}
+          path: qa-agent
 
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: qa-agent/package-lock.json
 
       - run: npm ci
+        working-directory: qa-agent
 
       - name: Bygg charter fra kommentaren
         id: charter
+        working-directory: qa-agent
         run: node scripts/charter-from-comment.mjs
 
       - name: Kjør testøkt
+        working-directory: qa-agent
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Én JSON-secret per miljø (se configs/example.json) + felles token generator-bruker
+          TOKEN_GENERATOR_USERNAME: ${{ secrets.TOKEN_GENERATOR_USERNAME }}
+          TOKEN_GENERATOR_PASSWORD: ${{ secrets.TOKEN_GENERATOR_PASSWORD }}
           QA_CONFIG_AT22: ${{ secrets.QA_CONFIG_AT22 }}
           QA_CONFIG_AT23: ${{ secrets.QA_CONFIG_AT23 }}
           QA_CONFIG_TT02: ${{ secrets.QA_CONFIG_TT02 }}
-          TOKEN_GENERATOR_USERNAME: ${{ secrets.TOKEN_GENERATOR_USERNAME }}
-          TOKEN_GENERATOR_PASSWORD: ${{ secrets.TOKEN_GENERATOR_PASSWORD }}
         run: npx tsx src/explore.ts --env=${{ steps.charter.outputs.env }} reports/charter.md
 
       - name: Svar med rapporten
         if: success()
+        working-directory: qa-agent
         run: |
           {
             echo "### 🔎 QA-agent: økt i \`${{ steps.charter.outputs.env }}\` ferdig"
@@ -83,4 +99,4 @@ jobs:
         if: always()
         with:
           name: qa-rapport-${{ github.run_id }}
-          path: reports/
+          path: qa-agent/reports/

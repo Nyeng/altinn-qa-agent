@@ -1,11 +1,10 @@
-// Miljøprofiler for Altinn 3. Ingen hemmeligheter her - bare hvor appen bor.
-// App-URL-er følger mønsteret https://{org}.apps.{miljø-domene}/{org}/{app}
+// Miljøer for Altinn Autorisasjon (altinn-auth). Ingen hemmeligheter her - bare hvor ting bor.
+// Samme URL-mønster som altinn-platform-validation-tests og altinn-access-management-frontend.
 
 export const ENVIRONMENTS = {
-  at22: { appsDomain: "apps.at22.altinn.cloud", description: "Altinn testmiljø AT22" },
-  at23: { appsDomain: "apps.at23.altinn.cloud", description: "Altinn testmiljø AT23" },
-  tt02: { appsDomain: "apps.tt02.altinn.no", description: "Altinn TT02 (tjenesteeiertest)" },
-  local: { appsDomain: "", description: "app-localtest (bruker TARGET_BASE_URL)" },
+  at22: { domain: "at22.altinn.cloud" },
+  at23: { domain: "at23.altinn.cloud" },
+  tt02: { domain: "tt02.altinn.no" },
 } as const;
 
 export type EnvName = keyof typeof ENVIRONMENTS;
@@ -14,19 +13,32 @@ export function isEnvName(value: string): value is EnvName {
   return value in ENVIRONMENTS;
 }
 
-export function appBaseUrl(env: EnvName, org: string, localBaseUrl?: string): URL {
-  if (env === "local") {
-    if (!localBaseUrl) throw new Error("QA_ENV=local krever TARGET_BASE_URL (f.eks. http://local.altinn.cloud)");
-    return new URL(localBaseUrl);
-  }
-  return new URL(`https://${org}.${ENVIRONMENTS[env].appsDomain}`);
+// Innebygde API-er per miljø. Agenten ser navn og beskrivelse, aldri nøkler.
+export function builtInApis(env: EnvName) {
+  const domain = ENVIRONMENTS[env].domain;
+  return {
+    platform: {
+      baseUrl: `https://platform.${domain}`,
+      description:
+        "Altinn-plattformen. Viktige stier: /accessmanagement/api/v1/enduser/{connections,authorizedparties,request,clientdelegations}, " +
+        "/authorization/api/v1, /authentication/api/v1/{systemuser,systemregister,enduser/systemuser}, " +
+        "/register/api/v1/access-management/parties/query, /resourceregistry/api/v1",
+    },
+    "am-bff": {
+      baseUrl: `https://am.ui.${domain}/accessmanagement/api/v1`,
+      description:
+        "BFF for tilgangsstyring (brukes av frontend). F.eks. /user/profile, /accesspackage, /connection, /consent, /role, " +
+        "/singleright, /systemuser, /settings, /reportee, /lookup, /request",
+    },
+  };
 }
 
-// Prod-sperre: alt under altinn.no som ikke er tt02 regnes som produksjon.
-export function assertNotProduction(url: URL): void {
+// Hard grense for hvilke verter agenten noensinne får kontakte: kun Altinns testmiljøer.
+// Dette kan ikke overstyres fra konfig, så agenten kan ikke rettes mot andre nettsteder eller prod.
+export function assertAllowedHost(url: URL): void {
   const host = url.hostname.toLowerCase();
-  const isAltinnNo = host === "altinn.no" || host.endsWith(".altinn.no");
-  if (isAltinnNo && !host.includes(".tt02.")) {
-    throw new Error(`Nekter å kjøre mot ${host} - ser ut som produksjon.`);
+  const allowed = Object.values(ENVIRONMENTS).some((e) => host === e.domain || host.endsWith(`.${e.domain}`));
+  if (url.protocol !== "https:" || !allowed) {
+    throw new Error(`Nekter å bruke ${url.origin} - kun https mot Altinns testmiljøer (at22, at23, tt02) er lov.`);
   }
 }
