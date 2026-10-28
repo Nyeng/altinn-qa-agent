@@ -38,6 +38,9 @@ const ghJson = (args) => JSON.parse(gh(args) || "null");
 const log = (msg) => console.log(DRY_RUN ? `[tørrkjøring] ${msg}` : msg);
 
 // ── 1. Registrer nye forespørsler ────────────────────────────────────────────
+// Nye issues er ikke alltid synlige i issue-lista med en gang, så de holdes også her.
+const justCreated = [];
+
 function registerRequests() {
   const since = new Date(Date.now() - LOOKBACK_HOURS * 3600_000).toISOString();
   const comments = ghJson([
@@ -77,8 +80,9 @@ function registerRequests() {
       log(`ville registrert ${req.sourceUrl} (${req.env}): "${req.charter.slice(0, 60)}"`);
       continue;
     }
-    gh(["issue", "create", "-R", OWN_REPO, "--label", LABEL, "--label", WAITING,
+    const url = gh(["issue", "create", "-R", OWN_REPO, "--label", LABEL, "--label", WAITING,
       "--title", `🕵️ altinn-auth#${number} · ${req.env} · kommentar ${c.id}`, "--body", body]);
+    justCreated.push({ number: Number(url.split("/").pop()), body, comments: [] });
     console.log(`Registrerte ${req.commentUrl}`);
   }
 }
@@ -126,7 +130,8 @@ export function readiness(req) {
 }
 
 function startReady() {
-  const waiting = ghJson(["issue", "list", "-R", OWN_REPO, "--label", WAITING, "--state", "open", "--json", "number,body,comments"]) ?? [];
+  const listed = ghJson(["issue", "list", "-R", OWN_REPO, "--label", WAITING, "--state", "open", "--json", "number,body,comments"]) ?? [];
+  const waiting = [...listed, ...justCreated.filter((n) => !listed.some((l) => l.number === n.number))];
   let started = 0;
   for (const issue of waiting) {
     const meta = issue.body.match(/<!-- snoken:(.*) -->/)?.[1];
