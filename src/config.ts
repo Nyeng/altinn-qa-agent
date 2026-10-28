@@ -69,7 +69,8 @@ for (const api of Object.values(apis)) {
 export const config = {
   model: process.env.QA_MODEL ?? "claude-sonnet-5-5",
   effort: effort(),
-  maxSteps: cfg.QA_MAX_STEPS ?? Number(process.env.QA_MAX_STEPS ?? 25),
+  // Per kjøring (QA_MAX_STEPS i miljøet) > miljøkonfigen > 25
+  maxSteps: Number(process.env.QA_MAX_STEPS || cfg.QA_MAX_STEPS || 25),
   // Tak på tokens per økt (inn + cache + ut). Snoken får beskjed om å avslutte når det er nådd.
   maxSessionTokens: Number(process.env.QA_MAX_SESSION_TOKENS ?? 400_000),
   env,

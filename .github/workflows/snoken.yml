@@ -26,9 +26,9 @@ on:
         type: string
         required: false
       max_steps:
-        description: Maks verktøykall
-        type: number
-        default: 25
+        description: Maks verktøykall (tom = miljøkonfig, ellers 25)
+        type: string
+        required: false
       model:
         description: Modell
         type: choice
@@ -62,7 +62,7 @@ jobs:
       IS_PR: ${{ github.event.issue.pull_request != null }}
       PR_REF: ${{ inputs.pr }}
       QA_MODEL: ${{ inputs.model || 'claude-sonnet-5-5' }}
-      QA_MAX_STEPS: ${{ inputs.max_steps || 25 }}
+      QA_MAX_STEPS: ${{ inputs.max_steps }}
     steps:
       - name: Kvitter med 👀
         if: github.event_name == 'issue_comment'
