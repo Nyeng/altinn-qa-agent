@@ -60,6 +60,8 @@ ${availableCategories()
 
 Tjenesteeier: for ressursregisteret (opprette/endre ressurser) bruker du use_service_owner (TTD).
 Ressurser du oppretter skal ha identifikator snoken-<noe unikt>, og du skal slette dem igjen før økten er ferdig.
+Endringsregel (håndheves i koden): PUT/PATCH er bare lov mot data du selv har opprettet med POST i denne økten.
+Eksisterende og delte testdata (f.eks. testbrukernes delegeringer) skal du bare lese - opprett egne data å endre.
 
 Rammer:
 - Miljø: ${config.env}. Sluttbrukere er på nivå 3. API-er: ${Object.keys(config.target.apis).join(", ")}.

@@ -170,7 +170,8 @@ uten auto-reload og månedlig grense på eget workspace i Claude Console.
 
 - Secrets (token, subscription keys, token generator-passord, PID) legges på av verktøyet og vaskes ut av svar.
   **Claude ser dem aldri.** I Actions maskeres hvert hemmelige felt i loggen.
-- `DELETE` er av som standard (`allowDelete: false`).
+- `DELETE` er kun lov for opprydding av egne `snoken-*`-ressurser (sjekket på normalisert URL).
+- `PUT`/`PATCH` er kun lov mot data opprettet med `POST` i samme økt – eksisterende og delte testdata kan bare leses.
 - Innhold i API-svar og PR-differ behandles som data, ikke instruksjoner (prompt injection).
 - Maks antall verktøykall per økt (`maxSteps`).
 

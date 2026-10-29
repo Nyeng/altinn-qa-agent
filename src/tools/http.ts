@@ -11,8 +11,40 @@ import { assertAllowedHost } from "../environments.js";
 //  - kun API-ene i miljøets konfig er lov, og kun verter i Altinns testmiljøer (hardkodet)
 //  - token og hemmelige headere (API-nøkler) legges på her, og vaskes ut av alt som går tilbake til Claude
 //  - DELETE er av med mindre QA_ALLOW_DELETE=true - unntak: opprydding av Son of Vegards egne `snoken-*`-ressurser
+//  - PUT/PATCH er bare lov mot data opprettet med POST i samme økt (aldri eksisterende/delte testdata)
 
 const MAX_BODY_CHARS = 8000;
+
+// Id-er til data opprettet med POST i denne økten. PUT/PATCH må treffe en av dem.
+const ownedIds = new Set<string>();
+const ID_KEY = /^(id|identifier|uuid|[a-z]*(Id|Uuid))$/;
+
+function rememberCreated(requestBody: string | undefined, responseText: string, location: string | null) {
+  const add = (v: unknown) => {
+    if ((typeof v === "string" || typeof v === "number") && String(v).length >= 3) ownedIds.add(String(v));
+  };
+  const collect = (obj: unknown) => {
+    if (!obj || typeof obj !== "object" || Array.isArray(obj)) return;
+    for (const [k, v] of Object.entries(obj)) if (ID_KEY.test(k)) add(v);
+    const data = (obj as Record<string, unknown>).data;
+    if (data && typeof data === "object" && !Array.isArray(data)) collect(data);
+  };
+  for (const text of [requestBody, responseText]) {
+    try {
+      collect(JSON.parse(text ?? ""));
+    } catch {
+      /* ikke JSON */
+    }
+  }
+  if (location) add(decodeURIComponent(new URL(location, "https://x").pathname.split("/").filter(Boolean).pop() ?? ""));
+}
+
+// Treffer URL-en (stisegmenter eller query-verdier) noe opprettet i denne økten?
+function targetsOwnedData(url: URL): boolean {
+  const segments = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  const values = [...segments, ...url.searchParams.values()];
+  return values.some((v) => ownedIds.has(v));
+}
 // Hele svaret per kall, så inspect_call kan hente mer uten nytt HTTP-kall.
 const storedBodies = new Map<number, string>();
 
@@ -152,6 +184,15 @@ export async function runHttpRequest(
     };
   }
 
+  if ((input.method === "PUT" || input.method === "PATCH") && !targetsOwnedData(url)) {
+    return {
+      content:
+        `${input.method} er bare lov mot testdata du har opprettet med POST i denne økten ` +
+        `(kjente: ${[...ownedIds].join(", ") || "ingen ennå"}). Opprett egne testdata først.`,
+      isError: true,
+    };
+  }
+
   // Modellen får ikke sette auth eller noen av de hemmelige headerne selv.
   const headers = new Headers(input.headers);
   headers.delete("authorization");
@@ -209,6 +250,9 @@ export async function runHttpRequest(
       .map(([h, v]) => `${h}: ${v}`)
       .join("\n");
     storedBodies.set(id, text);
+    if (input.method === "POST" && res.status >= 200 && res.status < 300) {
+      rememberCreated(input.body, text, res.headers.get("location"));
+    }
     // Feilsvar vises alltid i sin helhet: stack traces og lekkasjer skal aldri filtreres bort.
     const selected = input.fields?.length && res.status < 400 ? selectFields(text, input.fields) : undefined;
     const body =
