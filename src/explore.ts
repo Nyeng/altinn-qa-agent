@@ -14,7 +14,7 @@ if (!charterPath) {
 
 const charter = await readFile(charterPath, "utf8");
 const started = new Date();
-console.log(`🕵️ Snoken starter økt i ${config.env} (API-er: ${Object.keys(config.target.apis).join(", ")}) med ${config.model} (maks ${config.maxSteps} steg)\n`);
+console.log(`🕵️ Son of Vegard starter økt i ${config.env} (API-er: ${Object.keys(config.target.apis).join(", ")}) med ${config.model} (maks ${config.maxSteps} steg)\n`);
 
 const result = await runSession(charter);
 

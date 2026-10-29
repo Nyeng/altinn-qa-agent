@@ -37,7 +37,7 @@ export function renderReport(
     : ["- Ingen"];
 
   return [
-    `### 🕵️ ${meta.title ?? "Snoken"} · ${meta.env}`,
+    `### 🕵️ ${meta.title ?? "Son of Vegard"} · ${meta.env}`,
     "",
     "**Verifisert**",
     ...verified,

@@ -14,12 +14,12 @@ export type Category = {
   name: string;
   flow: string; // hva brukerne er laget for, i én setning
   sources: Source[];
-  // Kolonner for den som logger inn (pid er hemmelig og vises aldri for Snoken).
+  // Kolonner for den som logger inn (pid er hemmelig og vises aldri for Son of Vegard).
   pid: string;
   userId?: string;
   partyId?: string;
   partyUuid?: string; // brukerens egen partyUuid - sendes til token generator
-  // Andre kolonner Snoken får se, med forklaring (f.eks. parter brukeren IKKE skal nå).
+  // Andre kolonner Son of Vegard får se, med forklaring (f.eks. parter brukeren IKKE skal nå).
   context: Record<string, string>;
 };
 

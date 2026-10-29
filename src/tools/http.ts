@@ -9,7 +9,7 @@ import { assertAllowedHost } from "../environments.js";
 // Sikkerhet ligger i koden, ikke i prompten:
 //  - kun API-ene i miljøets konfig er lov, og kun verter i Altinns testmiljøer (hardkodet)
 //  - token og hemmelige headere (API-nøkler) legges på her, og vaskes ut av alt som går tilbake til Claude
-//  - DELETE er av med mindre QA_ALLOW_DELETE=true - unntak: opprydding av Snokens egne `snoken-*`-ressurser
+//  - DELETE er av med mindre QA_ALLOW_DELETE=true - unntak: opprydding av Son of Vegards egne `snoken-*`-ressurser
 
 const MAX_BODY_CHARS = 8000;
 
@@ -185,8 +185,8 @@ export async function runHttpRequest(
 }
 
 // Fjern hemmeligheter hvis API-et speiler dem tilbake. Markøren er bevisst tydelig: at et svar inneholder
-// tokenet eller en nøkkel er i seg selv et funn (lekkasje), så Snoken må kunne se AT det skjedde.
-export const SECRET_MARKER = "[SNOKEN: HEMMELIGHET FJERNET - API-ET RETURNERTE DENNE]";
+// tokenet eller en nøkkel er i seg selv et funn (lekkasje), så Son of Vegard må kunne se AT det skjedde.
+export const SECRET_MARKER = "[SON OF VEGARD: HEMMELIGHET FJERNET - API-ET RETURNERTE DENNE]";
 function redact(text: string): string {
   return secretsToRedact().reduce((t, secret) => t.replaceAll(secret, SECRET_MARKER), text);
 }

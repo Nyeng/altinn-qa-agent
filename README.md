@@ -1,4 +1,4 @@
-# altinn-qa-agent
+# Son of Vegard (altinn-qa-agent)
 
 En utforskende tester og QA-agent for **Altinn Autorisasjon og Tilgangsstyring** ([Altinn/altinn-auth](https://github.com/Altinn/altinn-auth)),
 bygget direkte på Claude API. Prosjektet er også studieprosjekt til **Claude Certified Developer – Foundations**.
@@ -41,7 +41,7 @@ Alt miljøspesifikt ligger i **én JSON per miljø**, i **samme format som K6-mi
 
 Hele konfigen er valgfri – uten den brukes standard-URL-er, men kall som krever subscription key feiler.
 Andre nøkler (f.eks. `SOAP_ER_*`) ignoreres, men behandles som hemmelige og vaskes ut.
-URL-ene må høre til miljøet som velges, ellers stopper Snoken.
+URL-ene må høre til miljøet som velges, ellers stopper Son of Vegard.
 
 | Hvor | Felles | Per miljø |
 |---|---|---|
@@ -65,8 +65,8 @@ PR-beskrivelsen) og reproduserbare funn:
   ▸ Reproduser (curl + svarutdrag, sammenfoldet)
 ```
 
-Forespørsler og svar i rapporten hentes fra HTTP-loggen – Snoken må vise til kall-ID-er – så rapporten kan ikke
-inneholde resultater som ikke faktisk skjedde. Returnerer et API tokenet eller en nøkkel, ser Snoken en tydelig
+Forespørsler og svar i rapporten hentes fra HTTP-loggen – Son of Vegard må vise til kall-ID-er – så rapporten kan ikke
+inneholde resultater som ikke faktisk skjedde. Returnerer et API tokenet eller en nøkkel, ser Son of Vegard en tydelig
 markør og rapporterer det som lekkasje.
 
 ## Hvor testbar er PR-en?
@@ -74,7 +74,7 @@ markør og rapporterer det som lekkasje.
 PR-er klassifiseres automatisk ([`scripts/pr-testability.mjs`](scripts/pr-testability.mjs)), bygd på de 80 siste
 mergede PR-ene i altinn-auth:
 
-| | Kategori | Andel | Snoken gjør |
+| | Kategori | Andel | Son of Vegard gjør |
 |---|---|---:|---|
 | 🟢 | Funksjonell endring | ~10 % | Verifiserer akseptansekriteriene |
 | 🟡 | Bak feature-flagg | ~4 % | Sjekker om flagget er på; ellers «ikke testet» |
@@ -86,7 +86,7 @@ Overstyr med `kategori:<navn>` eller `tving` i kommentaren.
 
 ## Testbrukere etter brukerflyt
 
-Snoken henter syntetiske testbrukere fra testdataene i
+Son of Vegard henter syntetiske testbrukere fra testdataene i
 [altinn-platform-validation-tests](https://github.com/Altinn/altinn-platform-validation-tests) (samme kilde som K6 sin
 `fetchTestData`), gruppert i kategorier etter brukerflyt ([`src/testdata-catalog.ts`](src/testdata-catalog.ts)):
 
@@ -106,7 +106,7 @@ Snoken henter syntetiske testbrukere fra testdataene i
 | `daglig-leder` | Daglige ledere | ✓ | | ✓ |
 | `privatperson` | Innbyggere uten roller | | ✓ | ✓ |
 
-Snoken velger kategori ut fra charteret (`pick_test_user`) og kan hente flere brukere og bytte mellom dem
+Son of Vegard velger kategori ut fra charteret (`pick_test_user`) og kan hente flere brukere og bytte mellom dem
 (`switch_user`) for å teste om bruker A når bruker B sine data. Han ser alias, ID-er og tilknyttede parter –
 **aldri fødselsnummer**. Vil du bruke en bestemt bruker, legg `TEST_USER_PID` (ev. `TEST_USER_ID`, `TEST_PARTY_UUID`)
 i miljøkonfigen.
@@ -114,13 +114,13 @@ i miljøkonfigen.
 ## Start fra GitHub: `/snoken`
 
 **I eget repo (nå):** kommenter `/snoken at23 <charter>` på en issue i `Nyeng/altinn-qa-agent`, eller kjør
-*Actions → Snoken → Run workflow*. Kun repo-eieren kan starte økter. Bruker repository secrets
+*Actions → Son of Vegard → Run workflow*. Kun repo-eieren kan starte økter. Bruker repository secrets
 `ANTHROPIC_API_KEY`, `TOKEN_GENERATOR_USERNAME`, `TOKEN_GENERATOR_PASSWORD` og (valgfritt) `QA_CONFIG_<MILJØ>`.
 
 **Fra altinn-auth via polling (nå):** skriv `/snoken at22 <charter>` som kommentar på en PR eller issue i
 Altinn/altinn-auth. [`snoken-polling.yml`](.github/workflows/snoken-polling.yml) sjekker hver time i arbeidstiden
-(07–16 norsk vintertid, man–fre), lager en issue her med lenke tilbake, og Snoken svarer i den.
-Gjelder det en PR, venter Snoken til koden er **klar til test**: PR-en er merget og merge-commiten er deployet til
+(07–16 norsk vintertid, man–fre), lager en issue her med lenke tilbake, og Son of Vegard svarer i den.
+Gjelder det en PR, venter Son of Vegard til koden er **klar til test**: PR-en er merget og merge-commiten er deployet til
 miljøet (GitHub-deployments som `authorization/at22`, regnet som ute 10 min etter registrering). For apper uten
 deployment-sporing (f.eks. resource-registry i dag) startes økten 10 min etter merge, med en merknad i rapporten.
 Du kan derfor tagge PR-en med en gang – også før review. PR-diffen tas med

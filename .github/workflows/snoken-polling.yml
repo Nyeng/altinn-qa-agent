@@ -1,4 +1,4 @@
-# Ser etter "/snoken"-kommentarer i Altinn/altinn-auth én gang i timen og starter Snoken når koden er klar til test.
+# Ser etter "/snoken"-kommentarer i Altinn/altinn-auth én gang i timen og starter Son of Vegard når koden er klar til test.
 # Rapporten havner som issue her - ingenting skrives til altinn-auth.
 #
 # Klar til test (PR-er): merget OG deployet til miljøet (deployments i GitHub, f.eks. authorization/at22,
@@ -12,7 +12,7 @@
 # Kostnad: ~1 Actions-minutt per sjekk (~220/mnd). Claude brukes bare når en forespørsel finnes.
 # Forespørsler fra kveld/helg plukkes opp ved første sjekk neste arbeidsdag.
 
-name: Snoken-polling (altinn-auth)
+name: Son of Vegard – polling (altinn-auth)
 
 on:
   schedule:

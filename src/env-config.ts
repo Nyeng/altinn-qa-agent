@@ -1,5 +1,5 @@
 // Én JSON-konfig per miljø, i samme format som K6-miljøene i altinn-platform-validation-tests,
-// pluss testbrukeren Snoken skal opptre som.
+// pluss testbrukeren Son of Vegard skal opptre som.
 //   CI:     secret QA_CONFIG_AT22 / QA_CONFIG_AT23 / QA_CONFIG_TT02 (hele JSON-en som verdi)
 //   Lokalt: configs/at22.json osv. (gitignored) - se configs/example.json
 // Miljøvariabelen vinner over filen hvis begge finnes. Ukjente nøkler (f.eks. SOAP_ER_*) ignoreres,
@@ -16,7 +16,7 @@ const EnvConfig = z
     REGISTER_SUBSCRIPTION_KEY: z.string().optional(), // brukes for platform /register/...
     AUTHORIZATION_SUBSCRIPTION_KEY: z.string().optional(), // brukes for platform /authorization/...
 
-    // Valgfri egen testbruker. Ellers velger Snoken brukere fra platform-validation-tests (testdata-catalog.ts).
+    // Valgfri egen testbruker. Ellers velger Son of Vegard brukere fra platform-validation-tests (testdata-catalog.ts).
     TEST_USER_PID: z.string().optional(),
     TEST_USER_ID: z.string().optional(),
     TEST_PARTY_ID: z.string().optional(),
@@ -24,7 +24,7 @@ const EnvConfig = z
     TEST_USER_SCOPES: z.string().default("altinn:portal/enduser"),
     TEST_USER_AUTH_LVL: z.string().default("3"),
 
-    // Snoken-innstillinger
+    // Son of Vegard-innstillinger
     QA_MAX_STEPS: z.coerce.number().int().positive().optional(),
     QA_ALLOW_DELETE: z.union([z.boolean(), z.enum(["true", "false"])]).optional(),
   })

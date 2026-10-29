@@ -1,11 +1,11 @@
-# Snoken i eget repo. Start en økt på to måter:
+# Son of Vegard i eget repo. Start en økt på to måter:
 #
 #  1. Kommenter på en issue her:   /snoken at23 Utforsk delegering av tilgangspakker mellom to personer
-#  2. Actions → Snoken → Run workflow (velg miljø og skriv charter)
+#  2. Actions → Son of Vegard → Run workflow (velg miljø og skriv charter)
 #
 # Kun repo-eieren kan starte økter. Bruker repository secrets.
 
-name: Snoken
+name: Son of Vegard
 
 on:
   issue_comment:
@@ -18,7 +18,7 @@ on:
         options: [at23, at22, tt02]
         default: at23
       charter:
-        description: Charter (hva Snoken skal utforske)
+        description: Charter (hva Son of Vegard skal utforske)
         type: string
         required: false
       issue:
@@ -86,7 +86,7 @@ jobs:
         id: charter
         run: node scripts/charter-from-comment.mjs
 
-      - name: Snoken snoker
+      - name: Son of Vegard tester
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           TOKEN_GENERATOR_USERNAME: ${{ secrets.TOKEN_GENERATOR_USERNAME }}
@@ -109,7 +109,7 @@ jobs:
         if: failure()
         run: >-
           node scripts/publish.mjs status "$NUMBER"
-          "⚠️ Snoken feilet - [logg](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          "⚠️ Son of Vegard feilet - [logg](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
 
       - uses: actions/upload-artifact@v4
         if: always()

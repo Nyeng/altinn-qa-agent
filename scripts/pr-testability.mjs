@@ -1,5 +1,5 @@
-// Klassifiserer en PR i altinn-auth etter hvor testbar den er for Snoken (API-tester i testmiljø).
-// Brukes av pollingen (hopper over det som ikke kan testes) og charteret (styrer hva Snoken skal gjøre).
+// Klassifiserer en PR i altinn-auth etter hvor testbar den er for Son of Vegard (API-tester i testmiljø).
+// Brukes av pollingen (hopper over det som ikke kan testes) og charteret (styrer hva Son of Vegard skal gjøre).
 // Regler bygd fra de siste 80 mergede PR-ene i repoet.
 
 const APP_DIRS = {
@@ -61,7 +61,7 @@ export const CATEGORIES = {
       "Bekreft bare at de berørte tjenestene kjører og svarer i miljøet etter deploy (ett lese-kall per app). " +
       "Ikke test funksjonalitet.",
   },
-  "ikke-testbar": { icon: "⚪", name: "Ikke testbar for Snoken", run: false, guidance: "" },
+  "ikke-testbar": { icon: "⚪", name: "Ikke testbar for Son of Vegard", run: false, guidance: "" },
 };
 
 /**

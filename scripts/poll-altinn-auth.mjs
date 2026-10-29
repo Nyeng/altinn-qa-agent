@@ -1,8 +1,8 @@
-// Snoken-polling for Altinn/altinn-auth. Kjøres hver time i arbeidstiden av .github/workflows/snoken-polling.yml.
+// Son of Vegard-polling for Altinn/altinn-auth. Kjøres hver time i arbeidstiden av .github/workflows/snoken-polling.yml.
 // Skriver aldri til altinn-auth: hver forespørsel blir en issue her (Nyeng/altinn-qa-agent), og rapporten havner der.
 //
 // 1. Registrer: nye "/snoken"-kommentarer fra godkjente brukere blir en issue med status «venter».
-// 2. Klar til test? Gjelder forespørselen en PR, starter Snoken først når koden er ute i miljøet:
+// 2. Klar til test? Gjelder forespørselen en PR, starter Son of Vegard først når koden er ute i miljøet:
 //    - PR-en må være merget (lukket uten merge → forespørselen avsluttes)
 //    - registrerer appen deployments i GitHub (f.eks. access-management/at22): merge-commiten må være deployet
 //    - ellers: merget for minst SNOKEN_DEPLOY_DELAY_MINUTES siden (deploy ikke bekreftet - står i rapporten)
@@ -117,7 +117,7 @@ export function readiness(req) {
   if (!CATEGORIES[testability.category].run && !req.force) {
     return {
       done:
-        `⚪ Ikke testbar for Snoken: ${testability.reason} ` +
+        `⚪ Ikke testbar for Son of Vegard: ${testability.reason} ` +
         `Skriv \`/snoken ${req.env} tving …\` på PR-en for å kjøre likevel.`,
     };
   }
@@ -174,7 +174,7 @@ function startReady() {
     const runArgs = ["workflow", "run", "snoken.yml", "-R", OWN_REPO, "-f", `env=${req.env}`, "-f", `charter=${charter}`, "-f", `issue=${issue.number}`];
     if (req.isPr) runArgs.push("-f", `pr=${req.sourceUrl}`);
     if (req.maxSteps) runArgs.push("-f", `max_steps=${req.maxSteps}`);
-    log(`#${issue.number}: ▶️ starter Snoken (${req.env}). ${r.note ?? ""}`);
+    log(`#${issue.number}: ▶️ starter Son of Vegard (${req.env}). ${r.note ?? ""}`);
     if (!DRY_RUN) {
       gh(runArgs);
       gh(["issue", "edit", String(issue.number), "-R", OWN_REPO, "--remove-label", WAITING]);
@@ -187,7 +187,7 @@ function startReady() {
 // Kjøres som skript (ikke når readiness/deploymentStatus importeres i test).
 if (import.meta.url === `file://${process.argv[1]}`) {
   if (!DRY_RUN) {
-    gh(["label", "create", LABEL, "-R", OWN_REPO, "--color", "5319e7", "--description", "Snoken-forespørsel fra altinn-auth", "--force"]);
+    gh(["label", "create", LABEL, "-R", OWN_REPO, "--color", "5319e7", "--description", "Son of Vegard-forespørsel fra altinn-auth", "--force"]);
     gh(["label", "create", WAITING, "-R", OWN_REPO, "--color", "fbca04", "--description", "Venter på merge/deploy", "--force"]);
   }
   registerRequests();

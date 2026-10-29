@@ -1,4 +1,4 @@
-// Gjør en GitHub-kommentar (eller Run workflow-input) om til et charter for Snoken.
+// Gjør en GitHub-kommentar (eller Run workflow-input) om til et charter for Son of Vegard.
 //   "/snoken at23 Utforsk vedlegg med store filer"  ->  env=at23, charter=resten
 // En PR-lenke til altinn-auth i teksten (eller PR_REF) gir krav (issues PR-en lukker), PR-tekst, diff og
 // testbarhetskategori som kontekst. "kategori:<navn>" i teksten overstyrer kategorien.
@@ -9,7 +9,7 @@ import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { CATEGORIES, classify } from "./pr-testability.mjs";
 
 const MAX_DIFF_CHARS = 20000;
-// PR-er Snoken får hente kontekst fra (offentlige repoer).
+// PR-er Son of Vegard får hente kontekst fra (offentlige repoer).
 const PR_REPOS = ["Altinn/altinn-auth"];
 const body = process.env.COMMENT_BODY ?? "";
 

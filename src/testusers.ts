@@ -1,6 +1,6 @@
-// Testbrukere Snoken kan opptre som, hentet fra Altinn/altinn-platform-validation-tests og
+// Testbrukere Son of Vegard kan opptre som, hentet fra Altinn/altinn-platform-validation-tests og
 // gruppert etter brukerflyt (se testdata-catalog.ts). Samme kilde som K6 sin fetchTestData.
-// Snoken ser alias, kategori, navn og ID-er - aldri fødselsnummer.
+// Son of Vegard ser alias, kategori, navn og ID-er - aldri fødselsnummer.
 import { config } from "./config.js";
 import { categoriesFor, type Category } from "./testdata-catalog.js";
 
@@ -17,7 +17,7 @@ export type TestUser = {
   userId?: string;
   partyId?: string;
   partyUuid?: string;
-  context: Record<string, string>; // det Snoken får se (kolonne → "verdi (forklaring)")
+  context: Record<string, string>; // det Son of Vegard får se (kolonne → "verdi (forklaring)")
 };
 
 const rowsCache = new Map<string, Record<string, string>[]>();
@@ -98,7 +98,7 @@ export function addServiceOwner(owner: string, scopeKeys: (keyof typeof SERVICE_
   });
 }
 
-// Det Snoken får se om en bruker.
+// Det Son of Vegard får se om en bruker.
 export function describeUser(u: TestUser): string {
   const ids = [u.userId && `userId ${u.userId}`, u.partyId && `partyId ${u.partyId}`, u.partyUuid && `partyUuid ${u.partyUuid}`];
   const ctx = Object.entries(u.context).map(([k, v]) => `${k}: ${v}`);

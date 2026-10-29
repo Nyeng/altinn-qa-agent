@@ -1,4 +1,4 @@
-// Publiserer Snokens resultat i en issue uten støy:
+// Publiserer Son of Vegards resultat i en issue uten støy:
 //   - rapporten er ÉN kommentar som oppdateres ved hver kjøring (aldri flere rapporter)
 //   - status står i en linje i issueteksten, ikke som egne kommentarer
 //

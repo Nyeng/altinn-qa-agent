@@ -7,7 +7,7 @@
 # Miljø: at22 | at23 | tt02 (standard at23). Resten av kommentaren blir charteret.
 # På en PR legges diffen ved som kontekst.
 
-name: Snoken (QA-agent)
+name: Son of Vegard (QA-agent)
 
 on:
   issue_comment:
@@ -81,7 +81,7 @@ jobs:
         working-directory: qa-agent
         run: |
           {
-            echo "### 🕵️ Snoken har snoket i \`${{ steps.charter.outputs.env }}\` ferdig"
+            echo "### 🕵️ Son of Vegard har testet i \`${{ steps.charter.outputs.env }}\` ferdig"
             echo
             head -c 60000 reports/latest.md
             echo
@@ -93,7 +93,7 @@ jobs:
         if: failure()
         run: >-
           gh issue comment "$NUMBER" --repo "${{ github.repository }}"
-          --body "⚠️ Snoken snublet. Se [kjøringen](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
+          --body "⚠️ Son of Vegard snublet. Se [kjøringen](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
 
       - uses: actions/upload-artifact@v4
         if: always()

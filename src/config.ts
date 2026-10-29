@@ -80,7 +80,7 @@ export const config = {
   effort: effort(),
   // Per kjøring (QA_MAX_STEPS i miljøet) > miljøkonfigen > 25
   maxSteps: Number(process.env.QA_MAX_STEPS || cfg.QA_MAX_STEPS || 25),
-  // Tak på tokens per økt (inn + cache + ut). Snoken får beskjed om å avslutte når det er nådd.
+  // Tak på tokens per økt (inn + cache + ut). Son of Vegard får beskjed om å avslutte når det er nådd.
   maxSessionTokens: Number(process.env.QA_MAX_SESSION_TOKENS ?? 400_000),
   env,
   target: {
