@@ -23,11 +23,11 @@ export type TestUser = {
 export const SERVICE_OWNERS: Record<string, { org: string; orgNo: string }> = {
   ttd: { org: "ttd", orgNo: "991825827" },
 };
-export const SERVICE_OWNER_SCOPES = {
-  "resource-read": "altinn:resourceregistry/resource.read",
-  "resource-write": "altinn:resourceregistry/resource.write",
-} as const;
-export type ServiceOwnerScope = keyof typeof SERVICE_OWNER_SCOPES;
+/** Brukes hvis scope-lista fra platform-validation-tests ikke kan hentes. */
+export const FALLBACK_SERVICE_OWNER_SCOPES = [
+  "altinn:resourceregistry/resource.read",
+  "altinn:resourceregistry/resource.write",
+];
 
 type Row = Record<string, string>;
 
@@ -72,10 +72,10 @@ export class TestUserPool {
   }
 
   /** Legg til og aktiver en tjenesteeier (virksomhetstoken). */
-  addServiceOwner(owner: string, scopeKeys: ServiceOwnerScope[]): TestUser {
+  addServiceOwner(owner: string, scopeList: string[]): TestUser {
     const so = SERVICE_OWNERS[owner];
     if (!so) throw new Error(`Ukjent tjenesteeier "${owner}". Kjente: ${Object.keys(SERVICE_OWNERS).join(", ")}`);
-    const scopes = scopeKeys.map((k) => SERVICE_OWNER_SCOPES[k]).join(" ");
+    const scopes = scopeList.join(" ");
     return this.add({
       category: `tjenesteeier ${so.org}`,
       enterprise: { ...so, scopes },

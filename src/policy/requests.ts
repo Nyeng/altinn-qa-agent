@@ -2,6 +2,7 @@
 //  - URL-en må ligge under API-ets vert og i et Altinn-testmiljø (sjekkes på normalisert URL)
 //  - DELETE er kun lov for opprydding av egne `snoken-*`-ressurser (med mindre allowDelete)
 //  - PUT/PATCH er kun lov mot data opprettet med POST i samme økt (aldri eksisterende/delte testdata)
+//  - Ingenting som sender meldinger til ekte mottakere (varselbestillinger, videresending på e-post)
 import { assertAllowedHost } from "./environments.js";
 
 export const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
@@ -29,6 +30,10 @@ export function checkRequest(opts: {
     return (err as Error).message;
   }
 
+  if (method !== "GET" && SENDS_MESSAGES.some((re) => re.test(url.pathname))) {
+    return "Avvist: endepunktet sender varsler/e-post til ekte mottakere og er sperret for agenten.";
+  }
+
   const lastSegment = url.pathname.split("/").filter(Boolean).pop() ?? "";
   if (method === "DELETE" && !allowDelete && !/^snoken-[a-z0-9_-]+$/.test(lastSegment)) {
     return "DELETE er kun lov for opprydding av egne testressurser (identifikator som starter med snoken-).";
@@ -41,6 +46,12 @@ export function checkRequest(opts: {
   }
   return undefined;
 }
+
+// Endepunkter som når ekte mennesker utenfor testmiljøet (e-post/SMS). Aldri tillatt.
+const SENDS_MESSAGES = [
+  /^\/notifications\/api\/v\d+\/(future\/)?orders(\/|$)/,
+  /^\/correspondence\/api\/v\d+\/correspondence\/[^/]+\/forward$/,
+];
 
 const ID_KEY = /^(id|identifier|uuid|[a-z]*(Id|Uuid))$/;
 

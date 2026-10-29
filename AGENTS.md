@@ -23,6 +23,7 @@ src/
     define.ts           defineTool + register: zod-skjema → JSON-skjema, sentral validering og feilhåndtering
     http.ts             http_request, inspect_call
     users.ts            pick_test_user, switch_user, use_service_owner
+    reference.ts        api_reference: API-kunnskap fra altinn-platform-validation-tests
     results.ts          record_check, report_finding
     fields.ts           utvalg fra JSON-svar
   policy/               sikkerhetsregler - rene funksjoner, testet
@@ -30,7 +31,8 @@ src/
     requests.ts         DELETE-/PUT-/PATCH-regler og OwnedData
     redact.ts           fjerning av hemmeligheter (synlig markør)
     guard.ts            repo-lås
-  altinn/               testbrukere (katalog etter brukerflyt) og token generator
+  altinn/               testbrukere (katalog etter brukerflyt), token generator, og pvt-knowledge.ts:
+                        K6-klienter og scopes fra platform-validation-tests, lest fra GitHub (ingen kopi)
   report/render.ts      kort rapport: Verifisert + Funn
 scripts/                polling, charter og publisering i GitHub Actions (ren node, ingen avhengigheter)
 test/                   node:test via tsx
@@ -42,6 +44,9 @@ test/                   node:test via tsx
 - **Hemmeligheter når aldri modellen.** Alt som returneres fra et verktøy går gjennom `session.redactor`.
 - **Kun testmiljøer.** Vert-allowlisten i `policy/environments.ts` skal ikke utvides til prod.
 - **PUT/PATCH kun mot data opprettet i økten, DELETE kun for egne `snoken-*`-ressurser.**
+- **Ingenting som når ekte mottakere** (varselbestillinger, videresending på e-post) - sperret i `policy/requests.ts`.
+- **Ikke kopier kunnskap fra platform-validation-tests.** Les den fra GitHub (`altinn/pvt-knowledge.ts`), så den
+  aldri driver fra kilden. Tjenesteeier-scopes begrenses til PVT-lista minus admin, deploy og varselutsending.
 - **Rapporten bygges fra HTTP-loggen**, ikke fra modellens tekst. Den skal være kort: Verifisert + Funn.
 - **Ingen modul-global tilstand.** Tilstand hører hjemme i `Session`; `fetch` og API-klienten injiseres.
 - **Systemprompt og verktøyliste skal være stabile** for en gitt konfig (ingen tidsstempler) - ellers brytes cachen.

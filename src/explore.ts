@@ -18,7 +18,8 @@ if (!charterPath) {
 }
 
 const config = loadConfig();
-const session = new Session(config);
+const session = new Session(config, { githubToken: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+await session.init();
 const charter = await readFile(charterPath, "utf8");
 const started = new Date();
 console.log(

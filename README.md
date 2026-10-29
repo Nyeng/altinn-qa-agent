@@ -9,6 +9,8 @@ mot API-ene i testmiljøet, med Claude API. Resultatet er en kort rapport: hva s
    eller `/snoken`-kommentarer.
 2. Den venter til koden er deployet til testmiljøet.
 3. Agenten tester mot akseptansekriteriene (fra issuet eller Featuren) og poster rapporten som en issue i dette repoet.
+   Hvordan API-ene brukes, slår den opp i [altinn-platform-validation-tests](https://github.com/Altinn/altinn-platform-validation-tests)
+   – alle Altinn-produktene, ingenting kopiert.
 
 ## Hva testes
 
@@ -53,4 +55,5 @@ npm run explore -- --env=at22 charters/01-autoriserte-parter-og-delegering.md
 
 - Kun testmiljøene at22, at23 og tt02.
 - Tokens og nøkler sendes aldri til modellen.
+- Ingenting som sender varsler eller e-post til ekte mottakere.
 - `PUT`/`PATCH` kun mot data agenten selv har opprettet, `DELETE` kun for opprydding av egne `snoken-*`-ressurser.

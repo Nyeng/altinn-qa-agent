@@ -1,13 +1,13 @@
 // Verktøy for å velge testbrukere etter brukerflyt, bytte mellom dem, og opptre som tjenesteeier.
 // Flere brukere i samme økt = tilgangskontrolltesting: når bruker-A bruker-B sine data?
 import { z } from "zod";
-import { describeUser, SERVICE_OWNER_SCOPES, SERVICE_OWNERS, type ServiceOwnerScope } from "../altinn/test-users.js";
+import { describeUser, SERVICE_OWNERS } from "../altinn/test-users.js";
 import type { Session } from "../agent/session.js";
 import { defineTool, type Tool } from "./define.js";
 
 export function createUserTools(session: Session): Tool[] {
   const categoryIds = session.users.categories().map((c) => c.id) as [string, ...string[]];
-  const scopeKeys = Object.keys(SERVICE_OWNER_SCOPES) as [ServiceOwnerScope, ...ServiceOwnerScope[]];
+  const scopes = session.allowedScopes as [string, ...string[]];
 
   const pickTestUser = defineTool({
     name: "pick_test_user",
@@ -45,13 +45,14 @@ export function createUserTools(session: Session): Tool[] {
   const useServiceOwner = defineTool({
     name: "use_service_owner",
     description:
-      "Opptre som tjenesteeier (virksomhetstoken) i stedet for sluttbruker - trengs f.eks. for å opprette eller " +
-      "endre ressurser i ressursregisteret (POST/PUT /resourceregistry/api/v1/resource). TTD (orgnr 991825827) " +
-      "eier testressursene. Ressurser du oppretter MÅ ha identifikator som starter med snoken- og ryddes bort etterpå.",
+      "Opptre som tjenesteeier (virksomhetstoken for TTD, orgnr 991825827) i stedet for sluttbruker - for API-er som " +
+      "krever det, f.eks. ressursregisteret, Correspondence eller Dialogporten (serviceowner). Velg scopes fra lista " +
+      "(hentet fra altinn-platform-validation-tests). Slå opp med api_reference hvilket token et endepunkt krever. " +
+      "Ressurser du oppretter MÅ ha identifikator som starter med snoken- og ryddes bort etterpå.",
     strict: true,
     input: z.strictObject({
       owner: z.enum(Object.keys(SERVICE_OWNERS) as [string, ...string[]]),
-      scopes: z.array(z.enum(scopeKeys)),
+      scopes: z.array(z.enum(scopes)),
     }),
     label: (i) => `🏛️ tjenesteeier ${i.owner} (${i.scopes.join(", ")})`,
     run: ({ owner, scopes }, s) => {

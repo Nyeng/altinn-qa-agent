@@ -50,7 +50,12 @@ describe("http_request", () => {
   async function asServiceOwner(handler: (req: SentRequest) => Response = () => json({})) {
     const { session, sent } = testSession(handler);
     const tools = createTools(session);
-    await runTool(tools, "use_service_owner", { owner: "ttd", scopes: ["resource-write"] }, session);
+    await runTool(
+      tools,
+      "use_service_owner",
+      { owner: "ttd", scopes: ["altinn:resourceregistry/resource.write"] },
+      session,
+    );
     const call = (input: Record<string, unknown>) => runTool(tools, "http_request", { why: "test", ...input }, session);
     return { session, sent, call };
   }

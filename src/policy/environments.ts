@@ -20,9 +20,9 @@ export function builtInApis(env: EnvName) {
     platform: {
       baseUrl: `https://platform.${domain}`,
       description:
-        "Altinn-plattformen. Viktige stier: /accessmanagement/api/v1/enduser/{connections,authorizedparties,request,clientdelegations}, " +
-        "/authorization/api/v1, /authentication/api/v1/{systemuser,systemregister,enduser/systemuser}, " +
-        "/register/api/v1/access-management/parties/query, /resourceregistry/api/v1",
+        "Altinn-plattformen - alle produktene under én vert: /accessmanagement, /authorization, /authentication, " +
+        "/resourceregistry, /register, /dialogporten, /correspondence, /storage, /events, /profile, /notifications. " +
+        "Slå opp endepunkter med api_reference.",
     },
     "am-bff": {
       baseUrl: `https://am.ui.${domain}/accessmanagement/api/v1`,
