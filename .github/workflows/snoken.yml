@@ -29,6 +29,10 @@ on:
         description: PR-lenke i altinn-auth (valgfritt) - gir PR-beskrivelse og diff som kontekst
         type: string
         required: false
+      feature:
+        description: Feature-issue i altinn-auth (valgfritt) - test av hele Featuren
+        type: string
+        required: false
       max_steps:
         description: Maks verktøykall (tom = miljøkonfig, ellers 25)
         type: string
@@ -65,6 +69,7 @@ jobs:
             || github.event.comment.body }}
       IS_PR: ${{ github.event.issue.pull_request != null }}
       PR_REF: ${{ inputs.pr }}
+      FEATURE_REF: ${{ inputs.feature }}
       QA_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       QA_MODEL: ${{ inputs.model || 'claude-sonnet-5-5' }}
       QA_MAX_STEPS: ${{ inputs.max_steps }}

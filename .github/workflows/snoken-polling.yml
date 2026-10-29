@@ -1,4 +1,5 @@
-# Ser etter "/snoken"-kommentarer i Altinn/altinn-auth én gang i timen og starter Son of Vegard når koden er klar til test.
+# Finner nye testoppgaver i Altinn/altinn-auth én gang i timen (arbeidstid) og starter Son of Vegard når koden er
+# klar til test: automatisk for testbare PR-er (🟢/🟡) og komplette Features, og manuelt via "/snoken"-kommentarer.
 # Rapporten havner som issue her - ingenting skrives til altinn-auth.
 #
 # Klar til test (PR-er): merget OG deployet til miljøet (deployments i GitHub, f.eks. authorization/at22,
@@ -36,6 +37,9 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       SNOKEN_ALLOWED_USERS: ${{ vars.SNOKEN_ALLOWED_USERS || 'Nyeng' }}
       SNOKEN_DEPLOY_DELAY_MINUTES: ${{ vars.SNOKEN_DEPLOY_DELAY_MINUTES || '10' }}
+      SNOKEN_AUTO: ${{ vars.SNOKEN_AUTO || 'true' }}             # 'false' slår av automatisk testing
+      SNOKEN_AUTO_ENV: ${{ vars.SNOKEN_AUTO_ENV || 'at22' }}
+      SNOKEN_DAILY_MAX: ${{ vars.SNOKEN_DAILY_MAX || '5' }}
     steps:
       - uses: actions/checkout@v4
         with:

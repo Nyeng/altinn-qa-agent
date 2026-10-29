@@ -117,7 +117,16 @@ i miljøkonfigen.
 *Actions → Son of Vegard → Run workflow*. Kun repo-eieren kan starte økter. Bruker repository secrets
 `ANTHROPIC_API_KEY`, `TOKEN_GENERATOR_USERNAME`, `TOKEN_GENERATOR_PASSWORD` og (valgfritt) `QA_CONFIG_<MILJØ>`.
 
-**Fra altinn-auth via polling (nå):** skriv `/snoken at22 <charter>` som kommentar på en PR eller issue i
+**Automatisk (standard):** pollingen finner selv testoppgaver i altinn-auth hver time i arbeidstiden – ingen
+kommando nødvendig:
+- **Testbare PR-er** (🟢 funksjonell, 🟡 bak flagg) testes i `at22` når de er merget og deployet. Kravene hentes fra
+  issuet PR-en lukker og **Featuren** over det (ADR-0004); krav andre PR-er skal dekke, står som «ikke testet».
+- **Komplette Features** (alle sub-issues lukket) testes ende-til-ende mot akseptansekriteriene når alle PR-ene er
+  deployet.
+- Maks **5 økter per dag** totalt (`vars.SNOKEN_DAILY_MAX`). Slå av med `vars.SNOKEN_AUTO=false`, bytt miljø med
+  `vars.SNOKEN_AUTO_ENV`.
+
+**Fra altinn-auth via polling (manuelt):** skriv `/snoken at22 <charter>` som kommentar på en PR eller issue i
 Altinn/altinn-auth. [`snoken-polling.yml`](.github/workflows/snoken-polling.yml) sjekker hver time i arbeidstiden
 (07–16 norsk vintertid, man–fre), lager en issue her med lenke tilbake, og Son of Vegard svarer i den.
 Gjelder det en PR, venter Son of Vegard til koden er **klar til test**: PR-en er merget og merge-commiten er deployet til
