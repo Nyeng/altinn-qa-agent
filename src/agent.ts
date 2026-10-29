@@ -3,7 +3,7 @@ import { config } from "./config.js";
 import { estimateCostUsd, type Usage } from "./pricing.js";
 import { systemPrompt } from "./prompts.js";
 import { addConfiguredUser, describeUser, knownUsers } from "./testusers.js";
-import { httpRequestTool, runHttpRequest, type HttpLogEntry } from "./tools/http.js";
+import { httpRequestTool, inspectCallTool, runHttpRequest, runInspectCall, type HttpLogEntry } from "./tools/http.js";
 import {
   recordCheckTool,
   reportFindingTool,
@@ -38,7 +38,15 @@ export type SessionResult = {
 };
 
 const client = new Anthropic();
-const tools = [pickTestUserTool, useServiceOwnerTool, switchUserTool, httpRequestTool, recordCheckTool, reportFindingTool];
+const tools = [
+  pickTestUserTool,
+  useServiceOwnerTool,
+  switchUserTool,
+  httpRequestTool,
+  inspectCallTool,
+  recordCheckTool,
+  reportFindingTool,
+];
 
 export async function runSession(charter: string): Promise<SessionResult> {
   const checks: SessionCheck[] = [];
@@ -160,6 +168,8 @@ async function executeTool(
       return runUseServiceOwner(use.input);
     case "http_request":
       return runHttpRequest(use.input, state.httpLog);
+    case "inspect_call":
+      return runInspectCall(use.input);
     case "record_check":
       return runRecordCheck(use.input, state.checks, state.httpLog);
     case "report_finding":
@@ -173,7 +183,7 @@ function logToolCall(use: Anthropic.Beta.BetaToolUseBlock, isError: boolean) {
   const input = use.input as Record<string, unknown>;
   const label =
     use.name === "http_request"
-      ? `${input.api ?? "platform"} ${input.method} ${input.path}  — ${input.why}`
+      ? `${input.api ?? "platform"} ${input.method} ${input.path}${input.fields ? ` [${(input.fields as string[]).join(", ")}]` : ""}  — ${input.why}`
       : use.name === "report_finding"
         ? `🐞 ${input.title}`
         : use.name === "pick_test_user"
@@ -184,6 +194,8 @@ function logToolCall(use: Anthropic.Beta.BetaToolUseBlock, isError: boolean) {
             ? `👤 bytter til ${input.alias}`
             : use.name === "record_check"
               ? `📋 [${input.result}] ${input.criterion}`
-              : `${use.name}`;
+              : use.name === "inspect_call"
+                ? `🔍 kall #${input.call} [${((input.fields as string[]) ?? []).join(", ")}]`
+                : `${use.name}`;
   console.log(`${isError ? "⚠️ " : "→ "} ${label}`);
 }

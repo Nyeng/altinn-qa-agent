@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { getToken, secretsToRedact } from "../auth.js";
+import { selectFields } from "./fields.js";
 import { activeUser } from "./users.js";
 import { config } from "../config.js";
 import { assertAllowedHost } from "../environments.js";
@@ -12,6 +13,34 @@ import { assertAllowedHost } from "../environments.js";
 //  - DELETE er av med mindre QA_ALLOW_DELETE=true - unntak: opprydding av Son of Vegards egne `snoken-*`-ressurser
 
 const MAX_BODY_CHARS = 8000;
+// Hele svaret per kall, så inspect_call kan hente mer uten nytt HTTP-kall.
+const storedBodies = new Map<number, string>();
+
+export const inspectCallTool: Anthropic.Beta.BetaTool = {
+  name: "inspect_call",
+  description:
+    "Hent deler av svaret fra et kall du allerede har gjort (Kall #N), uten å sende forespørselen på nytt. " +
+    "`fields` har samme syntaks som i http_request. Utelat fields for å se de første 8000 tegnene.",
+  input_schema: {
+    type: "object",
+    properties: {
+      call: { type: "integer", description: "Kall-ID (#N)" },
+      fields: { type: "array", items: { type: "string" } },
+    },
+    required: ["call"],
+    additionalProperties: false,
+  },
+};
+
+export function runInspectCall(rawInput: unknown): { content: string; isError: boolean } {
+  const parsed = z.object({ call: z.number().int(), fields: z.array(z.string()).optional() }).safeParse(rawInput);
+  if (!parsed.success) return { content: `Ugyldig input: ${parsed.error.message}`, isError: true };
+  const text = storedBodies.get(parsed.data.call);
+  if (text === undefined) return { content: `Fant ikke kall #${parsed.data.call}.`, isError: true };
+  const selected = parsed.data.fields?.length ? selectFields(text, parsed.data.fields) : undefined;
+  const body = selected ?? (text.length > MAX_BODY_CHARS ? `${text.slice(0, MAX_BODY_CHARS)}\n... [avkortet]` : text);
+  return { content: redact(`Kall #${parsed.data.call} (lagret svar):\n${body}`), isError: false };
+}
 
 const apiNames = Object.keys(config.target.apis);
 const apiList = Object.entries(config.target.apis)
@@ -24,7 +53,9 @@ export const httpRequestTool: Anthropic.Beta.BetaTool = {
     "Send en HTTP-forespørsel til et av API-ene du har tilgang til. `path` er relativ til API-ets base-URL " +
     '(f.eks. /accessmanagement/api/v1/enduser/authorizedparties for "platform"). ' +
     "Kallet gjøres som aktiv testbruker; autentisering og API-nøkler legges på automatisk - ikke send dem selv. " +
-    "Returnerer status, utvalgte headere og body (avkortet ved behov).\n\nTilgjengelige API-er:\n" +
+    "Returnerer status, utvalgte headere og body (avkortet ved behov). Bruk `fields` når du vet hva du ser etter - " +
+    "da får du bare de verdiene, og sparer mye. Feilsvar (4xx/5xx) returneres alltid i sin helhet. " +
+    "Hele svaret lagres; hent mer fra det senere med inspect_call i stedet for å kalle på nytt.\n\nTilgjengelige API-er:\n" +
     apiList,
   input_schema: {
     type: "object",
@@ -39,6 +70,13 @@ export const httpRequestTool: Anthropic.Beta.BetaTool = {
       },
       body: { type: "string", description: "Request-body som tekst (typisk JSON eller XML)" },
       why: { type: "string", description: "Kort: hva du vil lære av denne forespørselen" },
+      fields: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Valgfritt: bare disse delene av JSON-svaret. 'a.b' felt, 'data.#' antall, 'data[0]'/'data[-1]' " +
+          "første/siste, 'data[*].id' alle id-er. Utelat for å se hele svaret (f.eks. første kall mot et endepunkt).",
+      },
     },
     required: ["method", "path", "why"],
     additionalProperties: false,
@@ -52,6 +90,7 @@ const HttpInput = z.object({
   headers: z.record(z.string(), z.string()).optional(),
   body: z.string().optional(),
   why: z.string(),
+  fields: z.array(z.string()).optional(),
 });
 
 // Loggen er fasiten i rapporten: funn og akseptansekriterier viser til kall-ID-er, og
@@ -169,13 +208,22 @@ export async function runHttpRequest(
       .filter(([, v]) => v)
       .map(([h, v]) => `${h}: ${v}`)
       .join("\n");
+    storedBodies.set(id, text);
+    // Feilsvar vises alltid i sin helhet: stack traces og lekkasjer skal aldri filtreres bort.
+    const selected = input.fields?.length && res.status < 400 ? selectFields(text, input.fields) : undefined;
     const body =
-      text.length > MAX_BODY_CHARS
-        ? `${text.slice(0, MAX_BODY_CHARS)}\n... [avkortet, ${text.length} tegn totalt]`
-        : text;
+      selected !== undefined
+        ? selected
+        : text.length > MAX_BODY_CHARS
+          ? `${text.slice(0, MAX_BODY_CHARS)}\n... [avkortet, ${text.length} tegn totalt - bruk inspect_call/fields for resten]`
+          : text;
+    const note = input.fields?.length && selected === undefined ? "(fields ignorert: feilsvar eller ikke JSON)\n" : "";
 
     return {
-      content: redact(`Kall #${id}: HTTP ${res.status} ${res.statusText} (${Date.now() - started} ms)\n${shownHeaders}\n\n${body}`),
+      content: redact(
+        `Kall #${id}: HTTP ${res.status} ${res.statusText} (${Date.now() - started} ms, ${text.length} tegn)\n` +
+          `${shownHeaders}\n\n${note}${body}`,
+      ),
       isError: false,
     };
   } catch (err) {

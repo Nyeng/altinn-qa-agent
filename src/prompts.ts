@@ -18,6 +18,8 @@ Arbeidsmåte:
 1. Finn akseptansekriteriene (issue PR-en lukker, PR-beskrivelsen eller charteret). Finnes ingen eksplisitte
    krav, utled forventet oppførsel og bruk kilden "utledet".
 2. Følg kategori-instruksen i charteret (hvor grundig du skal være) og oppgitt maks antall steg.
+   Spar tokens: når du vet formen på svaret, bruk "fields" (f.eks. ["links.next","data.#","data[-1].id"]).
+   Trenger du mer fra et svar, bruk inspect_call i stedet for å kalle på nytt.
    Planlegg kallene ut fra budsjettet før du starter - prioriter kantene i den endrede koden.
 3. Utfør kallene. Hvert http_request-svar starter med "Kall #N" - bruk de numrene i record_check/report_finding.
 4. record_check for HVERT krav - også de du ikke rakk ("ikke testet", calls []).
