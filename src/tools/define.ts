@@ -1,6 +1,7 @@
 // Verktøyregister: hvert verktøy defineres ett sted (navn, beskrivelse, zod-skjema, handler).
 // JSON-skjemaet som sendes til API-et genereres fra zod, så validering og skjema aldri kan komme ut av sync.
-// Validering og feilhåndtering skjer sentralt: ugyldig input og exceptions blir tool_result med is_error,
+// Validering, feilhåndtering og redigering av hemmeligheter skjer sentralt: ugyldig input og exceptions blir
+// tool_result med is_error,
 // så modellen kan rette seg - løkka krasjer aldri på grunn av et verktøy.
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
@@ -70,7 +71,8 @@ export async function runTool(
   const label = tool.label?.(parsed.data) ?? name;
   try {
     const out = await tool.run(parsed.data, session);
-    return { ...out, label };
+    // Sentral redigering: ALT som går tilbake til modellen vaskes her, også fra verktøy som glemmer det selv.
+    return { ...out, content: session.redactor.redact(out.content), label };
   } catch (err) {
     return { content: session.redactor.redact(`Feil i ${name}: ${(err as Error).message}`), isError: true, label };
   }
