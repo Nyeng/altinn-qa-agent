@@ -1,5 +1,5 @@
-import type { SessionResult } from "./agent.js";
-import type { HttpLogEntry } from "./tools/http.js";
+import type { AgentResult } from "../agent/loop.js";
+import type { HttpLogEntry } from "../agent/session.js";
 
 // Rapporten er bevisst kort: en punktliste over hva som er verifisert (mot akseptansekriterier der de finnes)
 // og eventuelle funn. Reproduksjon (curl + svar) ligger sammenfoldet under hvert funn.
@@ -8,7 +8,7 @@ import type { HttpLogEntry } from "./tools/http.js";
 const ICON = { bestått: "✅", feilet: "❌", "ikke testet": "⚪" } as const;
 
 export function renderReport(
-  result: SessionResult,
+  result: AgentResult,
   meta: { env: string; model: string; title?: string; runUrl?: string },
 ): string {
   const byId = new Map(result.httpLog.map((e) => [e.id, e]));
@@ -57,7 +57,10 @@ export function renderReport(
 }
 
 function reproduce(e: HttpLogEntry): string[] {
-  const headers = [`Authorization: Bearer ${e.auth}`, ...Object.entries(e.requestHeaders).map(([k, v]) => `${k}: ${v}`)];
+  const headers = [
+    `Authorization: Bearer ${e.auth}`,
+    ...Object.entries(e.requestHeaders).map(([k, v]) => `${k}: ${v}`),
+  ];
   const curl = [
     `curl -i -X ${e.method} '${e.url}'`,
     ...headers.map((h) => `  -H '${h.replaceAll("'", "'\\''")}'`),
@@ -71,7 +74,10 @@ function reproduce(e: HttpLogEntry): string[] {
     "  ```",
     "",
     "  ```",
-    ...e.responseExcerpt.slice(0, 800).split("\n").map((l) => `  ${l}`),
+    ...e.responseExcerpt
+      .slice(0, 800)
+      .split("\n")
+      .map((l) => `  ${l}`),
     "  ```",
     "",
   ];

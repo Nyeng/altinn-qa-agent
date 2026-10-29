@@ -1,110 +1,64 @@
-import type Anthropic from "@anthropic-ai/sdk";
+// Verktøy for å velge testbrukere etter brukerflyt, bytte mellom dem, og opptre som tjenesteeier.
+// Flere brukere i samme økt = tilgangskontrolltesting: når bruker-A bruker-B sine data?
 import { z } from "zod";
-import {
-  addServiceOwner,
-  availableCategories,
-  describeUser,
-  knownUsers,
-  pickUser,
-  SERVICE_OWNER_SCOPES,
-  type TestUser,
-} from "../testusers.js";
+import { describeUser, SERVICE_OWNER_SCOPES, SERVICE_OWNERS, type ServiceOwnerScope } from "../altinn/test-users.js";
+import type { Session } from "../agent/session.js";
+import { defineTool, type Tool } from "./define.js";
 
-// Verktøy for å velge testbrukere etter brukerflyt og bytte mellom dem.
-// Flere brukere i samme økt = tilgangskontrolltesting: kan bruker-A se/endre bruker-B sine data?
+export function createUserTools(session: Session): Tool[] {
+  const categoryIds = session.users.categories().map((c) => c.id) as [string, ...string[]];
+  const scopeKeys = Object.keys(SERVICE_OWNER_SCOPES) as [ServiceOwnerScope, ...ServiceOwnerScope[]];
 
-let active: TestUser | undefined;
+  const pickTestUser = defineTool({
+    name: "pick_test_user",
+    description:
+      "Hent en ny testbruker fra en kategori (brukerflyt) og gjør den til aktiv bruker. " +
+      "Alle videre http_request-kall gjøres som denne brukeren. Returnerer alias og hva du vet om brukeren " +
+      "(ID-er, tilknyttet virksomhet, og ev. parter brukeren IKKE skal nå).",
+    strict: true,
+    input: z.strictObject({ category: z.enum(categoryIds) }),
+    label: (i) => `👤 ny bruker fra ${i.category}`,
+    run: async ({ category }, s) => ({ content: `Aktiv bruker er nå ${describeUser(await s.users.pick(category))}` }),
+  });
 
-export function activeUser(): TestUser | undefined {
-  return active;
-}
-
-export function setActiveUser(user: TestUser) {
-  active = user;
-}
-
-const categoryIds = availableCategories().map((c) => c.id);
-
-export const pickTestUserTool: Anthropic.Beta.BetaTool = {
-  name: "pick_test_user",
-  description:
-    "Hent en ny testbruker fra en kategori (brukerflyt) og gjør den til aktiv bruker. " +
-    "Alle videre http_request-kall gjøres som denne brukeren. Returnerer alias og hva du vet om brukeren " +
-    "(ID-er, tilknyttet virksomhet, og ev. parter brukeren IKKE skal nå).",
-  strict: true,
-  input_schema: {
-    type: "object",
-    properties: { category: { type: "string", enum: categoryIds } },
-    required: ["category"],
-    additionalProperties: false,
-  },
-};
-
-export const switchUserTool: Anthropic.Beta.BetaTool = {
-  name: "switch_user",
-  description: "Bytt aktiv bruker til en du allerede har hentet (f.eks. for å teste om bruker-B når bruker-A sine data).",
-  strict: true,
-  input_schema: {
-    type: "object",
-    properties: { alias: { type: "string", description: "F.eks. bruker-A" } },
-    required: ["alias"],
-    additionalProperties: false,
-  },
-};
-
-export async function runPickTestUser(rawInput: unknown) {
-  const parsed = z.object({ category: z.string() }).safeParse(rawInput);
-  if (!parsed.success) return { content: `Ugyldig input: ${parsed.error.message}`, isError: true };
-  try {
-    const user = await pickUser(parsed.data.category);
-    active = user;
-    return { content: `Aktiv bruker er nå ${describeUser(user)}`, isError: false };
-  } catch (err) {
-    return { content: (err as Error).message, isError: true };
-  }
-}
-
-export function runSwitchUser(rawInput: unknown) {
-  const parsed = z.object({ alias: z.string() }).safeParse(rawInput);
-  if (!parsed.success) return { content: `Ugyldig input: ${parsed.error.message}`, isError: true };
-  const user = knownUsers().find((u) => u.alias === parsed.data.alias);
-  if (!user) {
-    return { content: `Ukjent alias. Kjente: ${knownUsers().map((u) => u.alias).join(", ") || "ingen"}`, isError: true };
-  }
-  active = user;
-  return { content: `Aktiv bruker er nå ${describeUser(user)}`, isError: false };
-}
-
-export const useServiceOwnerTool: Anthropic.Beta.BetaTool = {
-  name: "use_service_owner",
-  description:
-    "Opptre som tjenesteeier (virksomhetstoken) i stedet for sluttbruker - trengs f.eks. for å opprette eller " +
-    "endre ressurser i ressursregisteret (POST/PUT /resourceregistry/api/v1/resource). TTD (orgnr 991825827) " +
-    "eier testressursene. Ressurser du oppretter MÅ ha identifikator som starter med snoken- og ryddes bort etterpå.",
-  strict: true,
-  input_schema: {
-    type: "object",
-    properties: {
-      owner: { type: "string", enum: ["ttd"] },
-      scopes: { type: "array", items: { type: "string", enum: Object.keys(SERVICE_OWNER_SCOPES) } },
+  const switchUser = defineTool({
+    name: "switch_user",
+    description:
+      "Bytt aktiv bruker til en du allerede har hentet (f.eks. for å teste om bruker-B når bruker-A sine data).",
+    strict: true,
+    input: z.strictObject({ alias: z.string().describe("F.eks. bruker-A") }),
+    label: (i) => `👤 bytter til ${i.alias}`,
+    run: ({ alias }, s) => {
+      const user = s.users.activate(alias);
+      if (!user) {
+        const known =
+          s.users
+            .all()
+            .map((u) => u.alias)
+            .join(", ") || "ingen";
+        return { content: `Ukjent alias. Kjente: ${known}`, isError: true };
+      }
+      return { content: `Aktiv bruker er nå ${describeUser(user)}` };
     },
-    required: ["owner", "scopes"],
-    additionalProperties: false,
-  },
-};
+  });
 
-export function runUseServiceOwner(rawInput: unknown) {
-  const parsed = z
-    .object({
-      owner: z.string(),
-      scopes: z.array(z.enum(Object.keys(SERVICE_OWNER_SCOPES) as [keyof typeof SERVICE_OWNER_SCOPES])).min(1),
-    })
-    .safeParse(rawInput);
-  if (!parsed.success) return { content: `Ugyldig input: ${parsed.error.message}`, isError: true };
-  try {
-    active = addServiceOwner(parsed.data.owner, parsed.data.scopes);
-    return { content: `Aktiv bruker er nå ${describeUser(active)}`, isError: false };
-  } catch (err) {
-    return { content: (err as Error).message, isError: true };
-  }
+  const useServiceOwner = defineTool({
+    name: "use_service_owner",
+    description:
+      "Opptre som tjenesteeier (virksomhetstoken) i stedet for sluttbruker - trengs f.eks. for å opprette eller " +
+      "endre ressurser i ressursregisteret (POST/PUT /resourceregistry/api/v1/resource). TTD (orgnr 991825827) " +
+      "eier testressursene. Ressurser du oppretter MÅ ha identifikator som starter med snoken- og ryddes bort etterpå.",
+    strict: true,
+    input: z.strictObject({
+      owner: z.enum(Object.keys(SERVICE_OWNERS) as [string, ...string[]]),
+      scopes: z.array(z.enum(scopeKeys)),
+    }),
+    label: (i) => `🏛️ tjenesteeier ${i.owner} (${i.scopes.join(", ")})`,
+    run: ({ owner, scopes }, s) => {
+      if (scopes.length === 0) return { content: "Oppgi minst ett scope.", isError: true };
+      return { content: `Aktiv bruker er nå ${describeUser(s.users.addServiceOwner(owner, scopes))}` };
+    },
+  });
+
+  return [pickTestUser, switchUser, useServiceOwner];
 }

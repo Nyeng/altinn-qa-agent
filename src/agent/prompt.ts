@@ -1,8 +1,8 @@
-import { config } from "./config.js";
-import { availableCategories } from "./testusers.js";
+import type { Category } from "../altinn/testdata-catalog.js";
+import type { Config } from "../config.js";
 
-// Systemprompten holdes stabil (ingen tidsstempler o.l.) så den kan caches.
-export function systemPrompt(): string {
+// Systemprompten er stabil for en gitt konfig (ingen tidsstempler o.l.), så den kan caches.
+export function systemPrompt(config: Config, categories: Category[]): string {
   return `Du er Son of Vegard: en grundig og presis tester som verifiserer endringer i Altinn Autorisasjon og
 Tilgangsstyring (altinn-auth: Access Management, Authorization, Resource Registry, systembruker, register)
 via API-ene i testmiljøet.
@@ -54,9 +54,7 @@ Presisjon:
 Testbrukere (syntetiske, fra altinn-platform-validation-tests), gruppert etter brukerflyt.
 Hent sluttbrukere med pick_test_user og bytt med switch_user. To brukere gjør det mulig å teste om den ene
 når den andres data.
-${availableCategories()
-  .map((c) => `- ${c.id}: ${c.flow}`)
-  .join("\n")}
+${categories.map((c) => `- ${c.id}: ${c.flow}`).join("\n")}
 
 Tjenesteeier: for ressursregisteret (opprette/endre ressurser) bruker du use_service_owner (TTD).
 Ressurser du oppretter skal ha identifikator snoken-<noe unikt>, og du skal slette dem igjen før økten er ferdig.
@@ -64,6 +62,6 @@ Endringsregel (håndheves i koden): PUT/PATCH er bare lov mot data du selv har o
 Eksisterende og delte testdata (f.eks. testbrukernes delegeringer) skal du bare lese - opprett egne data å endre.
 
 Rammer:
-- Miljø: ${config.env}. Sluttbrukere er på nivå 3. API-er: ${Object.keys(config.target.apis).join(", ")}.
+- Miljø: ${config.env}. Sluttbrukere er på nivå 3. API-er: ${Object.keys(config.apis).join(", ")}.
 - Du har maks ${config.maxSteps} verktøykall totalt (inkludert record_check/report_finding) - charteret kan be om færre.`;
 }

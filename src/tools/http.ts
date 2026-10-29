@@ -1,197 +1,99 @@
-import type Anthropic from "@anthropic-ai/sdk";
+// http_request og inspect_call - agentens "hender" mot API-ene. Sikkerhetsreglene ligger i policy/requests.ts.
+// Token og hemmelige headere (API-nøkler) legges på her og vaskes ut av alt som går tilbake til modellen.
 import { z } from "zod";
-import { getToken, secretsToRedact } from "../auth.js";
+import type { HttpLogEntry, Session } from "../agent/session.js";
+import type { Config } from "../config.js";
+import { checkRequest, METHODS, resolveUrl } from "../policy/requests.js";
+import { defineTool, type Tool, type ToolOutput } from "./define.js";
 import { selectFields } from "./fields.js";
-import { activeUser } from "./users.js";
-import { config } from "../config.js";
-import { assertAllowedHost } from "../environments.js";
-
-// Uke 1: agentens eneste "hender" er HTTP mot appens API.
-// Sikkerhet ligger i koden, ikke i prompten:
-//  - kun API-ene i miljøets konfig er lov, og kun verter i Altinns testmiljøer (hardkodet)
-//  - token og hemmelige headere (API-nøkler) legges på her, og vaskes ut av alt som går tilbake til Claude
-//  - DELETE er av med mindre QA_ALLOW_DELETE=true - unntak: opprydding av Son of Vegards egne `snoken-*`-ressurser
-//  - PUT/PATCH er bare lov mot data opprettet med POST i samme økt (aldri eksisterende/delte testdata)
 
 const MAX_BODY_CHARS = 8000;
-
-// Id-er til data opprettet med POST i denne økten. PUT/PATCH må treffe en av dem.
-const ownedIds = new Set<string>();
-const ID_KEY = /^(id|identifier|uuid|[a-z]*(Id|Uuid))$/;
-
-function rememberCreated(requestBody: string | undefined, responseText: string, location: string | null) {
-  const add = (v: unknown) => {
-    if ((typeof v === "string" || typeof v === "number") && String(v).length >= 3) ownedIds.add(String(v));
-  };
-  const collect = (obj: unknown) => {
-    if (!obj || typeof obj !== "object" || Array.isArray(obj)) return;
-    for (const [k, v] of Object.entries(obj)) if (ID_KEY.test(k)) add(v);
-    const data = (obj as Record<string, unknown>).data;
-    if (data && typeof data === "object" && !Array.isArray(data)) collect(data);
-  };
-  for (const text of [requestBody, responseText]) {
-    try {
-      collect(JSON.parse(text ?? ""));
-    } catch {
-      /* ikke JSON */
-    }
-  }
-  if (location) add(decodeURIComponent(new URL(location, "https://x").pathname.split("/").filter(Boolean).pop() ?? ""));
-}
-
-// Treffer URL-en (stisegmenter eller query-verdier) noe opprettet i denne økten?
-function targetsOwnedData(url: URL): boolean {
-  const segments = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
-  const values = [...segments, ...url.searchParams.values()];
-  return values.some((v) => ownedIds.has(v));
-}
-// Hele svaret per kall, så inspect_call kan hente mer uten nytt HTTP-kall.
-const storedBodies = new Map<number, string>();
-
-export const inspectCallTool: Anthropic.Beta.BetaTool = {
-  name: "inspect_call",
-  description:
-    "Hent deler av svaret fra et kall du allerede har gjort (Kall #N), uten å sende forespørselen på nytt. " +
-    "`fields` har samme syntaks som i http_request. Utelat fields for å se de første 8000 tegnene.",
-  input_schema: {
-    type: "object",
-    properties: {
-      call: { type: "integer", description: "Kall-ID (#N)" },
-      fields: { type: "array", items: { type: "string" } },
-    },
-    required: ["call"],
-    additionalProperties: false,
-  },
-};
-
-export function runInspectCall(rawInput: unknown): { content: string; isError: boolean } {
-  const parsed = z.object({ call: z.number().int(), fields: z.array(z.string()).optional() }).safeParse(rawInput);
-  if (!parsed.success) return { content: `Ugyldig input: ${parsed.error.message}`, isError: true };
-  const text = storedBodies.get(parsed.data.call);
-  if (text === undefined) return { content: `Fant ikke kall #${parsed.data.call}.`, isError: true };
-  const selected = parsed.data.fields?.length ? selectFields(text, parsed.data.fields) : undefined;
-  const body = selected ?? (text.length > MAX_BODY_CHARS ? `${text.slice(0, MAX_BODY_CHARS)}\n... [avkortet]` : text);
-  return { content: redact(`Kall #${parsed.data.call} (lagret svar):\n${body}`), isError: false };
-}
-
-const apiNames = Object.keys(config.target.apis);
-const apiList = Object.entries(config.target.apis)
-  .map(([name, api]) => `- ${name}: ${api.description || api.baseUrl.origin}`)
-  .join("\n");
-
-export const httpRequestTool: Anthropic.Beta.BetaTool = {
-  name: "http_request",
-  description:
-    "Send en HTTP-forespørsel til et av API-ene du har tilgang til. `path` er relativ til API-ets base-URL " +
-    '(f.eks. /accessmanagement/api/v1/enduser/authorizedparties for "platform"). ' +
-    "Kallet gjøres som aktiv testbruker; autentisering og API-nøkler legges på automatisk - ikke send dem selv. " +
-    "Returnerer status, utvalgte headere og body (avkortet ved behov). Bruk `fields` når du vet hva du ser etter - " +
-    "da får du bare de verdiene, og sparer mye. Feilsvar (4xx/5xx) returneres alltid i sin helhet. " +
-    "Hele svaret lagres; hent mer fra det senere med inspect_call i stedet for å kalle på nytt.\n\nTilgjengelige API-er:\n" +
-    apiList,
-  input_schema: {
-    type: "object",
-    properties: {
-      api: { type: "string", enum: apiNames, description: 'Hvilket API (standard "platform")' },
-      method: { type: "string", enum: ["GET", "POST", "PUT", "PATCH", "DELETE"] },
-      path: { type: "string", description: "Sti relativ til base-URL, må starte med /" },
-      headers: {
-        type: "object",
-        additionalProperties: { type: "string" },
-        description: "Ekstra headere, f.eks. Content-Type. Ikke send Authorization.",
-      },
-      body: { type: "string", description: "Request-body som tekst (typisk JSON eller XML)" },
-      why: { type: "string", description: "Kort: hva du vil lære av denne forespørselen" },
-      fields: {
-        type: "array",
-        items: { type: "string" },
-        description:
-          "Valgfritt: bare disse delene av JSON-svaret. 'a.b' felt, 'data.#' antall, 'data[0]'/'data[-1]' " +
-          "første/siste, 'data[*].id' alle id-er. Utelat for å se hele svaret (f.eks. første kall mot et endepunkt).",
-      },
-    },
-    required: ["method", "path", "why"],
-    additionalProperties: false,
-  },
-};
-
-const HttpInput = z.object({
-  api: z.string().default("platform"),
-  method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
-  path: z.string().startsWith("/"),
-  headers: z.record(z.string(), z.string()).optional(),
-  body: z.string().optional(),
-  why: z.string(),
-  fields: z.array(z.string()).optional(),
-});
-
-// Loggen er fasiten i rapporten: funn og akseptansekriterier viser til kall-ID-er, og
-// forespørsel/svar hentes herfra - ikke fra det modellen skriver. Alt er renset for hemmeligheter.
-export type HttpLogEntry = {
-  id: number;
-  user: string;
-  auth: string; // beskrivelse av tokenet (plassholder i curl), aldri selve tokenet
-  api: string;
-  method: string;
-  path: string;
-  url: string;
-  requestHeaders: Record<string, string>; // inkl. plassholdere for hemmelige headere
-  requestBody?: string;
-  status: number | "feil";
-  contentType?: string;
-  responseExcerpt: string;
-  why: string;
-  ms: number;
-};
-
 const RESPONSE_EXCERPT_CHARS = 1500;
+const TIMEOUT_MS = 30_000;
+const SHOWN_HEADERS = ["content-type", "location", "www-authenticate"];
 
-export async function runHttpRequest(
-  rawInput: unknown,
-  log: HttpLogEntry[],
-): Promise<{ content: string; isError: boolean }> {
-  const parsed = HttpInput.safeParse(rawInput);
-  if (!parsed.success) {
-    return { content: `Ugyldig input: ${parsed.error.message}`, isError: true };
-  }
-  const input = parsed.data;
+const FIELDS_HELP = "'a.b' felt, 'data.#' antall, 'data[0]'/'data[-1]' første/siste, 'data[*].id' alle id-er.";
 
+export function createHttpTools(config: Config): Tool[] {
+  const apiNames = Object.keys(config.apis) as [string, ...string[]];
+  const apiList = Object.entries(config.apis)
+    .map(([name, api]) => `- ${name}: ${api.description || api.baseUrl.origin}`)
+    .join("\n");
 
-  const user = activeUser();
+  const httpRequest = defineTool({
+    name: "http_request",
+    description:
+      "Send en HTTP-forespørsel til et av API-ene du har tilgang til. `path` er relativ til API-ets base-URL " +
+      '(f.eks. /accessmanagement/api/v1/enduser/authorizedparties for "platform"). ' +
+      "Kallet gjøres som aktiv testbruker; autentisering og API-nøkler legges på automatisk - ikke send dem selv. " +
+      "Bruk `fields` når du vet hva du ser etter - da får du bare de verdiene. Feilsvar (4xx/5xx) returneres alltid " +
+      "i sin helhet. Hele svaret lagres; hent mer med inspect_call i stedet for å kalle på nytt.\n\n" +
+      `Tilgjengelige API-er:\n${apiList}`,
+    input: z.strictObject({
+      api: z.enum(apiNames).default("platform").describe('Hvilket API (standard "platform")'),
+      method: z.enum(METHODS),
+      path: z.string().startsWith("/").describe("Sti relativ til base-URL, må starte med /"),
+      headers: z
+        .record(z.string(), z.string())
+        .optional()
+        .describe("Ekstra headere, f.eks. Content-Type. Ikke send Authorization."),
+      body: z.string().optional().describe("Request-body som tekst (typisk JSON eller XML)"),
+      why: z.string().describe("Kort: hva du vil lære av denne forespørselen"),
+      fields: z
+        .array(z.string())
+        .optional()
+        .describe(`Valgfritt: bare disse delene av JSON-svaret. ${FIELDS_HELP} Utelat for å se hele svaret.`),
+    }),
+    label: (i) => `${i.api} ${i.method} ${i.path}${i.fields ? ` [${i.fields.join(", ")}]` : ""}  — ${i.why}`,
+    run: (input, session) => sendRequest(input, session),
+  });
+
+  const inspectCall = defineTool({
+    name: "inspect_call",
+    description:
+      "Hent deler av svaret fra et kall du allerede har gjort (Kall #N), uten å sende forespørselen på nytt. " +
+      "`fields` har samme syntaks som i http_request. Utelat fields for å se de første 8000 tegnene.",
+    input: z.strictObject({
+      call: z.number().int().describe("Kall-ID (#N)"),
+      fields: z.array(z.string()).optional(),
+    }),
+    label: (i) => `🔍 kall #${i.call} [${(i.fields ?? []).join(", ")}]`,
+    run: ({ call, fields }, session) => {
+      const text = session.responseBodies.get(call);
+      if (text === undefined) return { content: `Fant ikke kall #${call}.`, isError: true };
+      const selected = fields?.length ? selectFields(text, fields) : undefined;
+      return { content: session.redactor.redact(`Kall #${call} (lagret svar):\n${selected ?? truncate(text)}`) };
+    },
+  });
+
+  return [httpRequest, inspectCall];
+}
+
+type HttpInput = {
+  api: string;
+  method: (typeof METHODS)[number];
+  path: string;
+  headers?: Record<string, string>;
+  body?: string;
+  why: string;
+  fields?: string[];
+};
+
+async function sendRequest(input: HttpInput, session: Session): Promise<ToolOutput> {
+  const user = session.users.active;
   if (!user) return { content: "Ingen aktiv bruker. Hent en med pick_test_user først.", isError: true };
+  const api = session.config.apis[input.api];
+  if (!api) return { content: `Ukjent API "${input.api}".`, isError: true };
 
-  const api = config.target.apis[input.api];
-  if (!api) return { content: `Ukjent API "${input.api}". Tilgjengelige: ${apiNames.join(", ")}`, isError: true };
-
-  // Sti er relativ til API-ets base-URL (også når base-URL-en har en sti, f.eks. /storage/api/v1).
-  const base = api.baseUrl.href.endsWith("/") ? api.baseUrl.href : `${api.baseUrl.href}/`;
-  const url = new URL(input.path.replace(/^\/+/, ""), base);
-  if (url.host !== api.baseUrl.host) {
-    return { content: `Avvist: ${url.host} er utenfor tillatt vert.`, isError: true };
-  }
-  try {
-    assertAllowedHost(url);
-  } catch (err) {
-    return { content: (err as Error).message, isError: true };
-  }
-
-  // Sjekkes på den normaliserte URL-en (etter ../ og %2e), så stien ikke kan lure seg forbi.
-  const lastSegment = url.pathname.split("/").filter(Boolean).pop() ?? "";
-  if (input.method === "DELETE" && !config.target.allowDelete && !/^snoken-[a-z0-9_-]+$/.test(lastSegment)) {
-    return {
-      content: "DELETE er kun lov for opprydding av egne testressurser (identifikator som starter med snoken-).",
-      isError: true,
-    };
-  }
-
-  if ((input.method === "PUT" || input.method === "PATCH") && !targetsOwnedData(url)) {
-    return {
-      content:
-        `${input.method} er bare lov mot testdata du har opprettet med POST i denne økten ` +
-        `(kjente: ${[...ownedIds].join(", ") || "ingen ennå"}). Opprett egne testdata først.`,
-      isError: true,
-    };
-  }
+  const url = resolveUrl(api.baseUrl, input.path);
+  const denied = checkRequest({
+    method: input.method,
+    url,
+    baseUrl: api.baseUrl,
+    allowDelete: session.config.allowDelete,
+    owned: session.owned,
+  });
+  if (denied) return { content: denied, isError: true };
 
   // Modellen får ikke sette auth eller noen av de hemmelige headerne selv.
   const headers = new Headers(input.headers);
@@ -200,85 +102,71 @@ export async function runHttpRequest(
 
   // Hemmelige headere for denne stien (f.eks. register- vs. authorization-nøkkel på platform).
   const relativePath = `/${input.path.replace(/^\/+/, "")}`;
-  const secretHeaders = api.headerRules
-    .filter((rule) => relativePath.startsWith(rule.pathPrefix))
-    .flatMap((rule) => Object.entries(rule.headers));
-
-  const id = log.length + 1;
-  const auth = user.enterprise
-    ? `<virksomhetstoken: GetEnterpriseToken org=${user.enterprise.org} orgNo=${user.enterprise.orgNo} scopes="${user.enterprise.scopes}" env=${config.env}>`
-    : `<sluttbrukertoken: GetPersonalToken env=${config.env} for testbruker ${user.alias} (${[user.userId && `userId=${user.userId}`, user.partyUuid && `partyuuid=${user.partyUuid}`].filter(Boolean).join(" ") || user.category})>`;
+  const rules = api.headerRules.filter((r) => relativePath.startsWith(r.pathPrefix));
   const loggedHeaders: Record<string, string> = Object.fromEntries(headers.entries());
-  for (const rule of api.headerRules.filter((r) => relativePath.startsWith(r.pathPrefix))) {
-    for (const name of Object.keys(rule.headers)) loggedHeaders[name] = `<${rule.secretName}>`;
-  }
-  const entry = (status: number | "feil", responseExcerpt: string, contentType?: string): HttpLogEntry => ({
-    id,
-    user: user.alias,
-    auth,
-    api: input.api,
-    method: input.method,
-    path: input.path,
-    url: url.href,
-    requestHeaders: loggedHeaders,
-    requestBody: input.body && redact(input.body),
-    status,
-    contentType,
-    responseExcerpt: redact(responseExcerpt.slice(0, RESPONSE_EXCERPT_CHARS)),
-    why: input.why,
-    ms: Date.now() - started,
-  });
+  for (const rule of rules) for (const name of Object.keys(rule.headers)) loggedHeaders[name] = `<${rule.secretName}>`;
 
+  const redact = (t: string) => session.redactor.redact(t);
+  const id = session.httpLog.length + 1;
   const started = Date.now();
-  try {
-    headers.set("authorization", `Bearer ${await getToken(user)}`);
-    for (const [name, value] of secretHeaders) headers.set(name, value);
+  const log = (status: HttpLogEntry["status"], response: string, contentType?: string) =>
+    session.httpLog.push({
+      id,
+      user: user.alias,
+      auth: session.tokens.describe(user),
+      api: input.api,
+      method: input.method,
+      path: input.path,
+      url: url.href,
+      requestHeaders: loggedHeaders,
+      requestBody: input.body && redact(input.body),
+      status,
+      contentType,
+      responseExcerpt: redact(response.slice(0, RESPONSE_EXCERPT_CHARS)),
+      why: input.why,
+      ms: Date.now() - started,
+    });
 
-    const res = await fetch(url, {
+  let res: Response;
+  let text: string;
+  try {
+    headers.set("authorization", `Bearer ${await session.tokens.tokenFor(user)}`);
+    for (const rule of rules) for (const [name, value] of Object.entries(rule.headers)) headers.set(name, value);
+    res = await session.fetch(url, {
       method: input.method,
       headers,
       body: input.body,
       redirect: "manual",
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    const text = await res.text();
-    log.push(entry(res.status, text, res.headers.get("content-type") ?? undefined));
-
-    const shownHeaders = ["content-type", "location", "www-authenticate"]
-      .map((h) => [h, res.headers.get(h)] as const)
-      .filter(([, v]) => v)
-      .map(([h, v]) => `${h}: ${v}`)
-      .join("\n");
-    storedBodies.set(id, text);
-    if (input.method === "POST" && res.status >= 200 && res.status < 300) {
-      rememberCreated(input.body, text, res.headers.get("location"));
-    }
-    // Feilsvar vises alltid i sin helhet: stack traces og lekkasjer skal aldri filtreres bort.
-    const selected = input.fields?.length && res.status < 400 ? selectFields(text, input.fields) : undefined;
-    const body =
-      selected !== undefined
-        ? selected
-        : text.length > MAX_BODY_CHARS
-          ? `${text.slice(0, MAX_BODY_CHARS)}\n... [avkortet, ${text.length} tegn totalt - bruk inspect_call/fields for resten]`
-          : text;
-    const note = input.fields?.length && selected === undefined ? "(fields ignorert: feilsvar eller ikke JSON)\n" : "";
-
-    return {
-      content: redact(
-        `Kall #${id}: HTTP ${res.status} ${res.statusText} (${Date.now() - started} ms, ${text.length} tegn)\n` +
-          `${shownHeaders}\n\n${note}${body}`,
-      ),
-      isError: false,
-    };
+    text = await res.text();
   } catch (err) {
-    log.push(entry("feil", (err as Error).message));
+    log("feil", (err as Error).message);
     return { content: redact(`Kall #${id}: nettverksfeil: ${(err as Error).message}`), isError: true };
   }
+
+  log(res.status, text, res.headers.get("content-type") ?? undefined);
+  session.responseBodies.set(id, text);
+  if (input.method === "POST" && res.ok) session.owned.rememberCreated(input.body, text, res.headers.get("location"));
+
+  // Feilsvar vises alltid i sin helhet: stack traces og lekkasjer skal aldri filtreres bort.
+  const selected = input.fields?.length && res.status < 400 ? selectFields(text, input.fields) : undefined;
+  const note = input.fields?.length && selected === undefined ? "(fields ignorert: feilsvar eller ikke JSON)\n" : "";
+  const shownHeaders = SHOWN_HEADERS.map((h) => [h, res.headers.get(h)] as const)
+    .filter(([, v]) => v)
+    .map(([h, v]) => `${h}: ${v}`)
+    .join("\n");
+
+  return {
+    content: redact(
+      `Kall #${id}: HTTP ${res.status} ${res.statusText} (${Date.now() - started} ms, ${text.length} tegn)\n` +
+        `${shownHeaders}\n\n${note}${selected ?? truncate(text)}`,
+    ),
+  };
 }
 
-// Fjern hemmeligheter hvis API-et speiler dem tilbake. Markøren er bevisst tydelig: at et svar inneholder
-// tokenet eller en nøkkel er i seg selv et funn (lekkasje), så Son of Vegard må kunne se AT det skjedde.
-export const SECRET_MARKER = "[SON OF VEGARD: HEMMELIGHET FJERNET - API-ET RETURNERTE DENNE]";
-function redact(text: string): string {
-  return secretsToRedact().reduce((t, secret) => t.replaceAll(secret, SECRET_MARKER), text);
+function truncate(text: string): string {
+  return text.length > MAX_BODY_CHARS
+    ? `${text.slice(0, MAX_BODY_CHARS)}\n... [avkortet, ${text.length} tegn totalt - bruk inspect_call/fields for resten]`
+    : text;
 }

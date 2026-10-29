@@ -29,7 +29,9 @@ const isRepoTooling = (p) =>
   /^\.(agents|claude)\//.test(p) ||
   /^docs\//.test(p) ||
   /(^|\/)(AGENTS|CONTRIBUTING|README)\.md$/.test(p) ||
-  /(^|\/)\.editorconfig$|\.coderabbit\.yaml$|renovate\.json$|cliff\.toml$|release-please|\.gitignore$|\.git-blame/.test(p) ||
+  /(^|\/)\.editorconfig$|\.coderabbit\.yaml$|renovate\.json$|cliff\.toml$|release-please|\.gitignore$|\.git-blame/.test(
+    p,
+  ) ||
   /\.slnx?$|Directory\.Build\.|\.ruleset$|devenv\.|global\.json$|docker-compose\.yml$/.test(p);
 
 export const CATEGORIES = {
@@ -76,7 +78,14 @@ export const CATEGORIES = {
  */
 export function classify({ title, files }) {
   const type = (title.match(/^(\w+)(\(|!|:)/)?.[1] ?? "").toLowerCase(); // feat, fix, bug, chore, ci, test, docs ...
-  const apps = [...new Set(files.map((f) => f.match(/^src\/apps\/([^/]+)\//)?.[1]).map((d) => APP_DIRS[d]).filter(Boolean))];
+  const apps = [
+    ...new Set(
+      files
+        .map((f) => f.match(/^src\/apps\/([^/]+)\//)?.[1])
+        .map((d) => APP_DIRS[d])
+        .filter(Boolean),
+    ),
+  ];
   const code = files.filter(isRuntimeCode);
   const infra = files.filter(isDeployInfra);
   // Flagg: PR-en sier selv at den handler om feature-flagg/toggle, og endrer infrastruktur der flagg ligger.

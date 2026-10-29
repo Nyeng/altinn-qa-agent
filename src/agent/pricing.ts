@@ -14,7 +14,10 @@ export function estimateCostUsd(model: string, usage: Usage): number {
   const p = PRICES[model];
   if (!p) return NaN;
   return (
-    (usage.input * p.input + usage.cacheWrite * p.input * 1.25 + usage.cacheRead * p.cacheRead + usage.output * p.output) /
+    (usage.input * p.input +
+      usage.cacheWrite * p.input * 1.25 +
+      usage.cacheRead * p.cacheRead +
+      usage.output * p.output) /
     1_000_000
   );
 }
