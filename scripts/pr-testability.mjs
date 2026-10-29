@@ -14,7 +14,7 @@ const APP_DIRS = {
 
 // Kodefiler som kan endre oppførselen til en kjørende tjeneste.
 // Testbiblioteker (f.eks. src/libs/Altinn.Authorization.Testing) teller ikke.
-const isRuntimeCode = (p) =>
+export const isRuntimeCode = (p) =>
   (/^src\/apps\/[^/]+\/src\//.test(p) || /^src\/libs\/[^/]+\/src\//.test(p) || /^src\/pkgs\/[^/]+\/src\//.test(p)) &&
   !/^src\/libs\/[^/]*Testing[^/]*\//.test(p);
 const isDeployInfra = (p) =>

@@ -25,7 +25,7 @@ import {
   ghJson,
   SOURCE_REPO,
 } from "./altinn.mjs";
-import { CATEGORIES, classify } from "./pr-testability.mjs";
+import { CATEGORIES, classify, isRuntimeCode } from "./pr-testability.mjs";
 import { setStatus } from "./publish.mjs";
 
 const OWN_REPO = process.env.GITHUB_REPOSITORY ?? "Nyeng/altinn-qa-agent";
@@ -42,6 +42,17 @@ const AUTO = process.env.SNOKEN_AUTO !== "false";
 const AUTO_ENV = process.env.SNOKEN_AUTO_ENV || "at22";
 const AUTO_CATEGORIES = ["funksjonell", "bak-flagg"];
 const DAILY_MAX = Number(process.env.SNOKEN_DAILY_MAX || 5);
+// PR-er som ikke skal testes automatisk (vurdert manuelt), f.eks. "4725,4726".
+const SKIP_PRS = new Set(
+  (process.env.SNOKEN_SKIP_PRS ?? "")
+    .split(",")
+    .map((n) => n.trim())
+    .filter(Boolean),
+);
+// Store endringer får større budsjett. Måles på kjørende kode, ikke tester.
+const LARGE_PR = { runtimeFiles: 8, runtimeLines: 300 };
+const STEPS_NORMAL = 25;
+const STEPS_LARGE = 40;
 
 // Mappe i altinn-auth → navn på deployment-miljøet i GitHub (<app>/<miljø>).
 const APPS = {
@@ -126,6 +137,7 @@ function registerAutoPullRequests(since) {
     ]) ?? [];
   let n = 0;
   for (const pr of prs) {
+    if (SKIP_PRS.has(String(pr.number))) continue;
     const c = classify({ title: pr.title, files: pr.files.map((f) => f.path) });
     if (!AUTO_CATEGORIES.includes(c.category)) continue;
     const key = `auto-pr-${pr.number}-${AUTO_ENV}`;
@@ -133,9 +145,13 @@ function registerAutoPullRequests(since) {
     const feature = closingIssues(pr.number)
       .map((i) => featureOf(i.number))
       .find(Boolean);
+    const runtime = pr.files.filter((f) => isRuntimeCode(f.path));
+    const runtimeLines = runtime.reduce((sum, f) => sum + (f.additions ?? 0) + (f.deletions ?? 0), 0);
+    const large = runtime.length >= LARGE_PR.runtimeFiles || runtimeLines >= LARGE_PR.runtimeLines;
     const req = {
       auto: true,
       isPr: true,
+      maxSteps: String(large ? STEPS_LARGE : STEPS_NORMAL),
       number: String(pr.number),
       env: AUTO_ENV,
       sourceUrl: pr.url,

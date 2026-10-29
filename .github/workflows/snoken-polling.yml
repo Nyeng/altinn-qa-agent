@@ -40,6 +40,7 @@ jobs:
       SNOKEN_AUTO: ${{ vars.SNOKEN_AUTO || 'true' }} # 'false' slår av automatisk testing
       SNOKEN_AUTO_ENV: ${{ vars.SNOKEN_AUTO_ENV || 'at22' }}
       SNOKEN_DAILY_MAX: ${{ vars.SNOKEN_DAILY_MAX || '5' }}
+      SNOKEN_SKIP_PRS: ${{ vars.SNOKEN_SKIP_PRS }} # f.eks. "4725,4726" - vurdert manuelt, testes ikke
     steps:
       - uses: actions/checkout@v4
         with:
