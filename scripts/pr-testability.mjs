@@ -1,6 +1,4 @@
 // Klassifiserer en PR i altinn-auth etter hvor testbar den er for Son of Vegard (API-tester i testmiljø).
-// Son of Vegard brukes til NYE features og rettinger (🟢 funksjonell, 🟡 bak flagg). Regresjon og deploy dekkes
-// av teamets eksisterende tester og kjøres ikke.
 // Brukes av pollingen (hopper over det som ikke kan testes) og charteret (styrer hva Son of Vegard skal gjøre).
 // Regler bygd fra de siste 80 mergede PR-ene i repoet.
 
@@ -47,27 +45,23 @@ export const CATEGORIES = {
       "Endringen ligger bak et feature-flagg. Finn flaggnavnet i diffen og sjekk om oppførselen er aktiv i miljøet. " +
       "Er den ikke aktiv, registrer kravene som 'ikke testet' med begrunnelse - det er ikke et funn. Få kall.",
   },
-  // Kjøres ikke: regresjon dekkes allerede av teamets eksisterende tester. Son of Vegard brukes til nye features.
   regresjon: {
     icon: "🟠",
     name: "Teknisk endring i kode",
-    run: false,
-    skipReason: "regresjon dekkes av eksisterende tester",
+    run: true,
     guidance:
       "Ingen ny oppførsel forventes. Gjør en kort regresjonstest: kall de endepunktene diffen berører og bekreft at " +
       "de svarer som før (statuskoder, format). Maks 3-4 kall.",
   },
-  // Kjøres ikke: at tjenestene svarer etter deploy dekkes allerede av teamets eksisterende tester.
   deploy: {
     icon: "🔵",
     name: "Deploy/infrastruktur",
-    run: false,
-    skipReason: "dekkes av eksisterende tester etter deploy",
+    run: true,
     guidance:
       "Bekreft bare at de berørte tjenestene kjører og svarer i miljøet etter deploy (ett lese-kall per app). " +
       "Ikke test funksjonalitet.",
   },
-  "ikke-testbar": { icon: "⚪", name: "Ikke testbar for Son of Vegard", run: false, skipReason: "", guidance: "" },
+  "ikke-testbar": { icon: "⚪", name: "Ikke testbar for Son of Vegard", run: false, guidance: "" },
 };
 
 /**

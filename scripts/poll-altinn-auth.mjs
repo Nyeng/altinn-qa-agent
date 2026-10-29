@@ -191,12 +191,10 @@ export function readiness(req) {
   if (!req.isPr) return { ready: true };
   const pr = ghJson(["pr", "view", req.number, "-R", SOURCE_REPO, "--json", "title,state,mergedAt,mergeCommit,files"]);
   const testability = classify({ title: pr.title, files: pr.files.map((f) => f.path) });
-  const category = CATEGORIES[testability.category];
-  if (!category.run && !req.force) {
+  if (!CATEGORIES[testability.category].run && !req.force) {
     return {
       done:
-        `${category.icon} ${category.name} - kjøres ikke: ${testability.reason}` +
-        `${category.skipReason ? ` (${category.skipReason})` : ""} ` +
+        `⚪ Ikke testbar for Son of Vegard: ${testability.reason} ` +
         `Skriv \`/snoken ${req.env} tving …\` på PR-en for å kjøre likevel.`,
     };
   }
@@ -265,7 +263,7 @@ function startReady() {
     if (r.done) {
       log(`#${issue.number}: ${r.done}`);
       if (!DRY_RUN) {
-        setStatus(issue.number, /^[⚪🔵]/u.test(r.done) ? r.done : `⏹️ ${r.done}`);
+        setStatus(issue.number, r.done.startsWith("⚪") ? r.done : `⏹️ ${r.done}`);
         gh(["issue", "close", String(issue.number), "-R", OWN_REPO]);
       }
       continue;
