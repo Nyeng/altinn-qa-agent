@@ -1,21 +1,98 @@
 # Son of Vegard (altinn-qa-agent)
 
-En utforskende tester og QA-agent for **Altinn Autorisasjon og Tilgangsstyring** ([Altinn/altinn-auth](https://github.com/Altinn/altinn-auth)),
-bygget direkte på Claude API. Prosjektet er også studieprosjekt til **Claude Certified Developer – Foundations**.
+En utforskende test-agent som verifiserer **nye features og rettinger** i
+[Altinn/altinn-auth](https://github.com/Altinn/altinn-auth) (Autorisasjon og Tilgangsstyring) i testmiljøene,
+via API-ene og med Claude API. Prosjektet er også studieprosjekt til **Claude Certified Developer – Foundations**.
 
-Agenten tar et **charter** (session-based exploratory testing), utforsker API-ene innenfor en tidsboks,
-fører notater og rapporterer funn, og skriver en markdown-rapport til `reports/`.
+Rapportene er korte: hva som er verifisert (mot akseptansekriteriene) og reproduserbare funn – ingenting annet.
 
-## Kom i gang lokalt
+## Slik fungerer det
 
-```bash
-npm install
-cp .env.example .env                       # ANTHROPIC_API_KEY + felles token generator-bruker
-cp configs/example.json configs/at23.json  # én per miljø: testbruker og subscription keys
-npm run explore -- --env=at23 charters/01-autoriserte-parter-og-delegering.md
+```
+altinn-auth                         Nyeng/altinn-qa-agent (dette repoet)
+───────────                         ────────────────────────────────────
+PR merget / Feature komplett   ──►  Polling hver time (07–16, man–fre)
+/snoken-kommentar (valgfritt)        │  klassifiser PR → kjøres den?
+                                     │  vent til koden er deployet
+                                     ▼
+                                    Issue her (forespørsel + status)
+                                     │
+                                     ▼
+                                    Son of Vegard kjører i GitHub Actions
+                                     │  testbrukere, tokens, API-kall
+                                     ▼
+                                    Én rapportkommentar i issuen
 ```
 
-## Miljøer og API-er
+1. **Finner oppgaver selv** – ingen kommando nødvendig:
+   - PR-er i altinn-auth som er merget og **testbare** (se under), testet i `at22`.
+   - **Features** der alle sub-issues er lukket – testet ende-til-ende mot akseptansekriteriene.
+   - Manuelt: `/snoken`-kommentarer på PR-er/issues i altinn-auth (kun fra godkjente brukere).
+2. **Venter til koden er ute:** PR-en må være merget og merge-commiten deployet til miljøet
+   (GitHub-deployments som `authorization/at22`, regnet som ute 10 min etter registrering). Apper uten
+   deployment-sporing (f.eks. resource-registry) starter 10 min etter merge, med merknad.
+3. **Henter kravene** fra issuet PR-en lukker og **Featuren** over det ([ADR-0004](https://github.com/Altinn/altinn-auth/blob/main/docs/adr/0004-issue-and-label-model.md)).
+   Krav som andre PR-er i Featuren skal dekke, står som «ikke testet» – ikke som feil.
+4. **Tester** med syntetiske testbrukere og direkte API-kall, og **rapporterer** i én kommentar i issuen.
+
+## Hva testes – og hva ikke
+
+PR-er klassifiseres automatisk ut fra filstier og commit-type ([`scripts/pr-testability.mjs`](scripts/pr-testability.mjs)).
+Andelene er fra de 80 siste mergede PR-ene i altinn-auth:
+
+| | Kategori | Andel | Kjøres? | Hvorfor |
+|---|---|---:|:-:|---|
+| 🟢 | **Funksjonell endring** (`feat`/`fix` i appkode) | ~10 % | ✅ | Ny eller rettet oppførsel – verifiseres mot akseptansekriteriene |
+| 🟡 | **Bak feature-flagg** | ~4 % | ✅ | Sjekker først om flagget er på i miljøet; er det av, blir kravene «ikke testet» |
+| 🟠 | Teknisk endring i kode (formatering, avhengigheter, refaktorering) | ~18 % | ❌ | Regresjon dekkes av teamets eksisterende tester |
+| 🔵 | Deploy/infrastruktur (manifester, containere, terraform) | ~19 % | ❌ | Dekkes av eksisterende tester etter deploy |
+| ⚪ | Ikke testbar (CI, tester, dokumentasjon, verktøy) | ~50 % | ❌ | Ingen endring i kjørende kode |
+
+**Omtrent 1 av 7 PR-er kjøres.** For de som ikke kjøres, lukkes forespørselen med kategori og begrunnelse.
+Overstyr med `tving` eller `kategori:<navn>` i en `/snoken`-kommentar.
+
+## Rapporten
+
+Én kommentar per issue, som oppdateres ved ny kjøring. Status står i én linje øverst i issueteksten.
+
+```
+### 🕵️ PR #4613 🟢 · at22
+
+**Verifisert**
+- ✅ Siste side med innhold (delvis full) har next-lenke
+- ✅ Siste side akkurat full har next-lenke
+- ⚪ Ikke testet: paginering med ugyldig token
+
+**Funn**
+- 🐞 **POST med orgnr med mellomrom foran gir 500** (middels) – forventet 201, faktisk 500
+  ▸ Reproduser (curl + svarutdrag, sammenfoldet)
+
+claude-sonnet-5-5 · 4 kall · $0.07 · logg
+```
+
+- Forespørsler og svar hentes fra HTTP-loggen via kall-ID-er – rapporten kan ikke inneholde resultater som ikke
+  faktisk skjedde.
+- Et ✅ krever at agenten kan forklare **hvordan kallene traff den endrede koden** (f.eks. «limit=1 på siste
+  element»). Ellers blir kravet ⚪ «ikke testet».
+- Returnerer et API tokenet eller en nøkkel, vises en tydelig markør, og det rapporteres som lekkasje.
+- Alle detaljer (dekning per krav, hele HTTP-loggen) ligger i `session.json` i artefakten til kjøringen.
+
+## Starte manuelt
+
+Kommentar på en PR eller issue i altinn-auth (plukkes opp av pollingen) eller på en issue her:
+
+```
+/snoken at22 Verifiser trim av orgnr ved POST og PUT, sjekk lagret verdi med GET. maks 8 steg
+```
+
+- Miljø rett etter kommandoen: `at22`, `at23` eller `tt02` (standard `at23`).
+- `maks N steg` setter grensen for antall verktøykall.
+- `tving` kjører også PR-er som ellers ikke kjøres. `kategori:<navn>` overstyrer kategorien.
+
+Eller **Actions → Son of Vegard → Run workflow** med feltene miljø, charter, PR-lenke, Feature-lenke,
+maks steg og modell.
+
+## Miljøer og konfig
 
 | Miljø | `platform` | `am-bff` |
 |---|---|---|
@@ -23,185 +100,102 @@ npm run explore -- --env=at23 charters/01-autoriserte-parter-og-delegering.md
 | `at23` | `https://platform.at23.altinn.cloud` | `https://am.ui.at23.altinn.cloud/accessmanagement/api/v1` |
 | `tt02` | `https://platform.tt02.altinn.no` | `https://am.ui.tt02.altinn.no/accessmanagement/api/v1` |
 
-Samme URL-mønster som `altinn-platform-validation-tests` og `altinn-access-management-frontend`.
-Token hentes fra Altinn test token generator (`GetPersonalToken`) for testbrukeren i miljøets konfig.
+**Secrets** (Settings → Secrets and variables → Actions):
 
-### Konfig per miljø
-
-Alt miljøspesifikt ligger i **én JSON per miljø**, i **samme format som K6-miljøene** i
-`altinn-platform-validation-tests` (se [`configs/example.json`](configs/example.json)):
-
-| Nøkkel | Brukes til |
+| Secret | Innhold |
 |---|---|
-| `BASE_URL`, `AM_UI_BASE_URL` | API-ene `platform` og `am-bff` (valgfrie, ellers standard-URL for miljøet) |
-| `REGISTER_SUBSCRIPTION_KEY` | `Ocp-Apim-Subscription-Key` på `platform` `/register/...` |
-| `AUTHORIZATION_SUBSCRIPTION_KEY` | `Ocp-Apim-Subscription-Key` på `platform` `/authorization/...` |
-| `TEST_USER_PID`, `TEST_USER_ID`, `TEST_PARTY_ID`, `TEST_PARTY_UUID` | Valgfri egen testbruker (ellers fra katalogen) |
-| `QA_MAX_STEPS`, `QA_ALLOW_DELETE` | Valgfrie grenser |
+| `ANTHROPIC_API_KEY` | Nøkkel fra et eget workspace i Claude Console, med månedlig betalingsgrense |
+| `TOKEN_GENERATOR_USERNAME` / `TOKEN_GENERATOR_PASSWORD` | Altinn test token generator – felles for alle miljøer (som i platform-validation-tests) |
+| `QA_CONFIG_AT22` / `QA_CONFIG_AT23` / `QA_CONFIG_TT02` | Miljøkonfig i **K6-formatet** fra platform-validation-tests, **på én linje** |
 
-Hele konfigen er valgfri – uten den brukes standard-URL-er, men kall som krever subscription key feiler.
-Andre nøkler (f.eks. `SOAP_ER_*`) ignoreres, men behandles som hemmelige og vaskes ut.
-URL-ene må høre til miljøet som velges, ellers stopper Son of Vegard.
+Miljøkonfigen (se [`configs/example.json`](configs/example.json)) er valgfri:
+`BASE_URL`, `AM_UI_BASE_URL`, `REGISTER_SUBSCRIPTION_KEY` (brukes på `/register/...`),
+`AUTHORIZATION_SUBSCRIPTION_KEY` (brukes på `/authorization/...`), og ev. en egen testbruker (`TEST_USER_*`).
+Ukjente nøkler (f.eks. `SOAP_ER_*`) ignoreres, men behandles som hemmelige.
 
-| Hvor | Felles | Per miljø |
-|---|---|---|
-| Lokalt | `.env` | `configs/at22.json`, `configs/at23.json`, `configs/tt02.json` (gitignored) |
-| GitHub Actions | secrets `ANTHROPIC_API_KEY`, `TOKEN_GENERATOR_USERNAME`, `TOKEN_GENERATOR_PASSWORD` | secrets `QA_CONFIG_AT22`, `QA_CONFIG_AT23`, `QA_CONFIG_TT02` |
-
-## Rapport
-
-Kort punktliste – bare det som er verifisert (mot akseptansekriterier fra issuene PR-en lukker, ellers
-PR-beskrivelsen) og reproduserbare funn:
-
-```
-### 🕵️ PR #4736 🟢 · at22
-**Verifisert**
-- ✅ Tom side har ikke next-lenke
-- ❌ Orgnr med mellomrom foran blir trimmet og lagret – 500 FormatException
-- ⚪ Ikke testet: PUT med mellomrom bak
-
-**Funn**
-- 🐞 **POST med orgnr med mellomrom foran gir 500** (middels) – forventet 201, faktisk 500
-  ▸ Reproduser (curl + svarutdrag, sammenfoldet)
-```
-
-Forespørsler og svar i rapporten hentes fra HTTP-loggen – Son of Vegard må vise til kall-ID-er – så rapporten kan ikke
-inneholde resultater som ikke faktisk skjedde. Returnerer et API tokenet eller en nøkkel, ser Son of Vegard en tydelig
-markør og rapporterer det som lekkasje.
-
-## Hvor testbar er PR-en?
-
-PR-er klassifiseres automatisk ([`scripts/pr-testability.mjs`](scripts/pr-testability.mjs)), bygd på de 80 siste
-mergede PR-ene i altinn-auth:
-
-| | Kategori | Andel | Son of Vegard gjør |
-|---|---|---:|---|
-| 🟢 | Funksjonell endring | ~10 % | Verifiserer akseptansekriteriene |
-| 🟡 | Bak feature-flagg | ~4 % | Sjekker om flagget er på; ellers «ikke testet» |
-| 🟠 | Teknisk endring i kode | ~18 % | Kort regresjon av berørte endepunkter |
-| 🔵 | Deploy/infrastruktur | ~19 % | Røyktest: tjenesten svarer |
-| ⚪ | Ikke testbar (CI, tester, docs) | ~50 % | Kjører ikke – svarer med begrunnelse |
-
-Overstyr med `kategori:<navn>` eller `tving` i kommentaren.
+**Variabler** (valgfrie): `SNOKEN_AUTO` (`false` slår av automatikken), `SNOKEN_AUTO_ENV` (standard `at22`),
+`SNOKEN_DAILY_MAX` (standard 5), `SNOKEN_DEPLOY_DELAY_MINUTES` (standard 10), `SNOKEN_ALLOWED_USERS` (standard `Nyeng`).
 
 ## Testbrukere etter brukerflyt
 
-Son of Vegard henter syntetiske testbrukere fra testdataene i
-[altinn-platform-validation-tests](https://github.com/Altinn/altinn-platform-validation-tests) (samme kilde som K6 sin
-`fetchTestData`), gruppert i kategorier etter brukerflyt ([`src/testdata-catalog.ts`](src/testdata-catalog.ts)):
+Syntetiske testbrukere hentes fra testdataene i
+[altinn-platform-validation-tests](https://github.com/Altinn/altinn-platform-validation-tests) (samme kilde som K6),
+gruppert etter brukerflyt ([`src/testdata-catalog.ts`](src/testdata-catalog.ts)):
 
 | Kategori | Brukerflyt | at22 | at23 | tt02 |
 |---|---|:-:|:-:|:-:|
-| `tilgangspakker-person` | Tilgangspakker person→person | | ✓ | ✓ |
-| `tilgangspakker-virksomhet` | Tilgangspakker virksomhet→virksomhet | | ✓ | ✓ |
-| `enkeltrettigheter` | Enkeltrettigheter til tjenester | | ✓ | ✓ |
-| `instansdelegering` | Tilgang til enkeltinstanser | | ✓ | ✓ |
-| `klientadministrasjon` | Regnskapsfører/revisor med klienter | ✓ | ✓ | ✓ |
-| `klient-agent` | Ansatt som får klienttilganger | ✓ | ✓ | ✓ |
-| `samtykke` | Personer som gir samtykke | ✓ | ✓ | ✓ |
-| `forespørsler` | Tilgangsforespørsler | ✓ | ✓ | ✓ |
-| `aktivitetslogg` | Brukere med aktivitetshistorikk | ✓ | ✓ | |
+| `tilgangspakker-person` / `-virksomhet` | Tilgangspakker | | ✓ | ✓ |
+| `enkeltrettigheter`, `instansdelegering` | Enkeltrettigheter og tilgang til enkeltinstanser | | ✓ | ✓ |
+| `klientadministrasjon`, `klient-agent` | Regnskapsfører/revisor og ansatte med klienter | ✓ | ✓ | ✓ |
+| `samtykke`, `forespørsler` | Samtykke og tilgangsforespørsler | ✓ | ✓ | ✓ |
+| `aktivitetslogg` | Brukere med historikk | ✓ | ✓ | |
 | `partsstruktur-grenser` | Firma, underenheter, klienter – og parter brukeren **ikke** skal nå | ✓ | ✓ | ✓ |
-| `systembruker` | Godkjenning av systembrukere og endringsforespørsler | ✓ | ✓ | ✓ |
-| `daglig-leder` | Daglige ledere | ✓ | | ✓ |
-| `privatperson` | Innbyggere uten roller | | ✓ | ✓ |
+| `systembruker` | Godkjenning av systembrukere | ✓ | ✓ | ✓ |
+| `daglig-leder`, `privatperson` | Bred tilgang, og ingen roller | delvis | delvis | ✓ |
 
-Son of Vegard velger kategori ut fra charteret (`pick_test_user`) og kan hente flere brukere og bytte mellom dem
-(`switch_user`) for å teste om bruker A når bruker B sine data. Han ser alias, ID-er og tilknyttede parter –
-**aldri fødselsnummer**. Vil du bruke en bestemt bruker, legg `TEST_USER_PID` (ev. `TEST_USER_ID`, `TEST_PARTY_UUID`)
-i miljøkonfigen.
+Agenten kan hente flere brukere og bytte mellom dem for å teste tilgangskontroll, og opptre som tjenesteeier
+(TTD, virksomhetstoken) mot ressursregisteret. Den ser alias, ID-er og tilknyttede parter – **aldri fødselsnummer**.
 
-## Start fra GitHub: `/snoken`
+## Sikkerhet
 
-**I eget repo (nå):** kommenter `/snoken at23 <charter>` på en issue i `Nyeng/altinn-qa-agent`, eller kjør
-*Actions → Son of Vegard → Run workflow*. Kun repo-eieren kan starte økter. Bruker repository secrets
-`ANTHROPIC_API_KEY`, `TOKEN_GENERATOR_USERNAME`, `TOKEN_GENERATOR_PASSWORD` og (valgfritt) `QA_CONFIG_<MILJØ>`.
+Håndheves i koden, ikke i prompten:
 
-**Automatisk (standard):** pollingen finner selv testoppgaver i altinn-auth hver time i arbeidstiden – ingen
-kommando nødvendig:
-- **Testbare PR-er** (🟢 funksjonell, 🟡 bak flagg) testes i `at22` når de er merget og deployet. Kravene hentes fra
-  issuet PR-en lukker og **Featuren** over det (ADR-0004); krav andre PR-er skal dekke, står som «ikke testet».
-- **Komplette Features** (alle sub-issues lukket) testes ende-til-ende mot akseptansekriteriene når alle PR-ene er
-  deployet.
-- Maks **5 økter per dag** totalt (`vars.SNOKEN_DAILY_MAX`). Slå av med `vars.SNOKEN_AUTO=false`, bytt miljø med
-  `vars.SNOKEN_AUTO_ENV`.
-
-**Fra altinn-auth via polling (manuelt):** skriv `/snoken at22 <charter>` som kommentar på en PR eller issue i
-Altinn/altinn-auth. [`snoken-polling.yml`](.github/workflows/snoken-polling.yml) sjekker hver time i arbeidstiden
-(07–16 norsk vintertid, man–fre), lager en issue her med lenke tilbake, og Son of Vegard svarer i den.
-Gjelder det en PR, venter Son of Vegard til koden er **klar til test**: PR-en er merget og merge-commiten er deployet til
-miljøet (GitHub-deployments som `authorization/at22`, regnet som ute 10 min etter registrering). For apper uten
-deployment-sporing (f.eks. resource-registry i dag) startes økten 10 min etter merge, med en merknad i rapporten.
-Du kan derfor tagge PR-en med en gang – også før review. PR-diffen tas med
-automatisk, og «maks N steg» i teksten setter grensen. Kun kommentarer fra `vars.SNOKEN_ALLOWED_USERS`
-(standard `Nyeng`) teller, maks 3 økter per time, og ingenting skrives til altinn-auth.
-
-**Direkte i altinn-auth (senere, krever teamet):**
-
-Kommenter på en issue eller PR i Altinn/altinn-auth:
-
-```
-/snoken at23 Utforsk delegering av tilgangspakker til en annen person
-```
-
-Workflowen reagerer med 👀, kjører økten og svarer med rapporten. Miljø er `at23` (standard), `at22` eller `tt02`;
-resten av kommentaren er charteret. På en PR legges diffen ved.
-Workflowen ligger i [`templates/altinn-auth/snoken.yml`](templates/altinn-auth/snoken.yml) og kopieres til altinn-auth.
-
-## Låst til altinn-auth
-
-Agenten skal ikke kunne brukes i andre repoer eller mot andre systemer. Flere lag:
-
-1. **Secrets finnes bare i altinn-auth**, i GitHub Environment `qa-agent` (kun `main`, ev. påkrevde godkjennere).
-   Uten dem kan agenten ikke hente token eller kalle Claude.
-2. **Workflowen** kjører kun når `github.repository == 'Altinn/altinn-auth'` og kommentaren er fra et org-medlem.
-3. **Koden** nekter å starte i GitHub Actions utenfor `Altinn/altinn-auth` ([`src/guard.ts`](src/guard.ts)).
-4. **Verter er hardkodet** til Altinns testmiljøer (`*.at22.altinn.cloud`, `*.at23.altinn.cloud`, `*.tt02.altinn.no`, kun https).
-   Ingen konfig kan rette agenten mot prod eller andre nettsteder ([`src/environments.ts`](src/environments.ts)).
-5. **Agent-repoet er privat**; altinn-auth henter det med en lesetoken (`QA_AGENT_REPO_TOKEN`).
+- **Kun testmiljøer:** verter er hardkodet til `*.at22.altinn.cloud`, `*.at23.altinn.cloud` og `*.tt02.altinn.no`
+  (kun https). Prod og andre nettsteder er umulig.
+- **Kun godkjente repoer:** kjører bare i `Nyeng/altinn-qa-agent` og `Altinn/altinn-auth`, og bare for godkjente
+  brukere.
+- **Hemmeligheter når aldri modellen:** tokens og nøkler legges på av verktøyet og vaskes ut av alle svar.
+  I Actions maskeres hvert hemmelige felt i loggen.
+- **Endringer er avgrenset:**
+  - `PUT`/`PATCH` kun mot data agenten har opprettet med `POST` i samme økt – eksisterende og delte testdata
+    kan bare leses.
+  - `DELETE` kun for opprydding av egne `snoken-*`-ressurser.
+  - Begge sjekkes på den normaliserte URL-en (stopper `../`- og `%2e`-triks).
+- **Prompt injection:** innhold i API-svar, PR-tekst og diff behandles som data, ikke instruksjoner.
+- **Grenser:** maks antall verktøykall og tokens per økt, maks 3 økter per polling og 5 per dag.
 
 ## Kostnad
 
-Standard er `claude-sonnet-5-5` med `QA_EFFORT=low`, maks 25 verktøykall og et tokentak på 400 000 per økt
-(`QA_MAX_SESSION_TOKENS`). Hver rapport viser tokenforbruk og estimert pris. I tillegg: forhåndsbetalt kreditt
-uten auto-reload og månedlig grense på eget workspace i Claude Console.
+Standard er `claude-sonnet-5-5` med `QA_EFFORT=low`, maks 25 verktøykall og 400 000 tokens per økt.
+Agenten kan be om bare utvalgte felter fra store API-svar (`fields`), og hente mer fra et lagret svar uten nytt
+kall (`inspect_call`). En typisk økt koster **$0.05–0.10** (estimat i hver rapport; fasit i Claude Console).
+Bruk i tillegg forhåndsbetalt kreditt uten auto-reload og en månedlig grense på eget workspace.
 
-## Sikkerhet ellers
+## Kjøre lokalt
 
-- Secrets (token, subscription keys, token generator-passord, PID) legges på av verktøyet og vaskes ut av svar.
-  **Claude ser dem aldri.** I Actions maskeres hvert hemmelige felt i loggen.
-- `DELETE` er kun lov for opprydding av egne `snoken-*`-ressurser (sjekket på normalisert URL).
-- `PUT`/`PATCH` er kun lov mot data opprettet med `POST` i samme økt – eksisterende og delte testdata kan bare leses.
-- Innhold i API-svar og PR-differ behandles som data, ikke instruksjoner (prompt injection).
-- Maks antall verktøykall per økt (`maxSteps`).
+```bash
+npm install
+cp .env.example .env                       # ANTHROPIC_API_KEY + token generator-bruker
+cp configs/example.json configs/at22.json  # valgfritt: subscription keys
+npm run explore -- --env=at22 charters/01-autoriserte-parter-og-delegering.md
+```
 
 ## Struktur
 
 | Fil | Hva |
 |---|---|
-| `src/agent.ts` | Manuell agentløkke: `stop_reason`, `tool_use` → `tool_result`, caching, fallback |
-| `src/env-config.ts` | Leser og validerer miljøets JSON-konfig, maskerer secrets i Actions |
-| `src/environments.ts` | Miljøer, innebygde API-er og hardkodet vert-allowlist |
-| `src/guard.ts` | Repo-lås (kun Altinn/altinn-auth i Actions) |
-| `src/auth.ts` | Sluttbrukertoken per testbruker via Altinn test token generator |
-| `src/testdata-catalog.ts` | Kategorier av testbrukere etter brukerflyt (kilde: platform-validation-tests) |
-| `src/testusers.ts` | Henter og velger testbrukere, skjuler fødselsnummer |
-| `src/tools/users.ts` | `pick_test_user` / `switch_user` |
-| `src/pricing.ts` | Estimert pris per økt |
-| `src/tools/http.ts` | `http_request` mot navngitte API-er, med auth-injeksjon og redaksjon |
-| `src/tools/session.ts` | `record_note` / `report_finding` med `strict: true`-skjema |
-| `src/prompts.ts` | Systemprompt: tester-persona og heuristikker for tilgangsstyring |
-| `src/report.ts` | Øktrapport (SBTM-format) |
-| `charters/` | Testcharter, ett per økt |
-| `.github/workflows/snoken.yml` | Workflow for eget repo (`/snoken` i issues + Run workflow) |
-| `templates/altinn-auth/` | Workflow som kopieres til altinn-auth |
+| `src/agent.ts` | Manuell agentløkke: `stop_reason`, `tool_use` → `tool_result`, caching, fallback, grenser |
+| `src/prompts.ts` | Systemprompt: arbeidsmåte, testheuristikker, testbrukere |
+| `src/tools/http.ts` | `http_request` og `inspect_call`, med sikkerhetsregler, auth og redigering |
+| `src/tools/fields.ts` | Utvalg av felter fra JSON-svar |
+| `src/tools/users.ts` | `pick_test_user`, `switch_user`, `use_service_owner` |
+| `src/tools/session.ts` | `record_check` og `report_finding` |
+| `src/testusers.ts`, `src/testdata-catalog.ts` | Testbrukere etter brukerflyt |
+| `src/auth.ts` | Tokens fra Altinn test token generator |
+| `src/config.ts`, `src/env-config.ts`, `src/environments.ts`, `src/guard.ts` | Konfig, miljøer, vert- og repo-sperrer |
+| `src/report.ts`, `src/pricing.ts` | Kort rapport og estimert pris |
+| `scripts/poll-altinn-auth.mjs` | Polling: finner oppgaver, venter på deploy, starter økter |
+| `scripts/pr-testability.mjs` | Klassifisering av PR-er |
+| `scripts/charter-from-comment.mjs` | Bygger charteret (krav fra issue/Feature, PR-diff, kategori) |
+| `scripts/altinn.mjs`, `scripts/publish.mjs` | Oppslag i altinn-auth, og publisering i issuen |
+| `.github/workflows/` | `snoken.yml` (økt) og `snoken-polling.yml` (polling) |
+| `templates/altinn-auth/` | Workflow for å kjøre direkte i altinn-auth (krever teamet) |
 
 ## Veikart (= studieplan for eksamen)
 
-- [x] **Uke 1 – API-grunnmur:** Messages API, manuell tool-løkke, HTTP-verktøy, rapport, miljøer, GitHub-trigger
-- [ ] **Uke 2 – Tool use + strukturert output:** Playwright-verktøy mot tilgangsstyring-UI (TestID-innlogging som i
-      platform-validation-tests), handlinger via tilgjengelighetstreet (`getByRole`) i stedet for selektorer
-- [ ] **Uke 3 – Agenter/MCP:** orkestrator som lager charter fra `git diff`, utforsker-subagenter, verifikator-agent som reproduserer funn
-- [ ] **Uke 4 – Evals + sikkerhet:** plantede feil → mål funnrate og falske positiver; prompt injection-tester; k6-verktøy for enkel last
-- [ ] **Uke 5 – Prøveeksamener**, svake domener
-- [ ] **Uke 6 – Repetisjon og eksamen** (Pearson-testsenter, Glasspaper)
+- [x] **API-grunnmur:** Messages API, manuell tool-løkke, HTTP-verktøy, rapport, miljøer
+- [x] **Tool use og strukturert output:** strenge skjemaer, testbrukere, tjenesteeier, `fields`
+- [x] **Automatisering:** polling, deploy-sjekk, klassifisering, krav fra Features
+- [ ] **Agenter/MCP:** underagent for testdata (Tenor), Playwright for UI-delen av Features
+- [ ] **Evals:** plantede feil → mål funnrate og falske positiver
+- [ ] **Prøveeksamener og eksamen** (Pearson-testsenter, Glasspaper)
