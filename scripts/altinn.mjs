@@ -71,14 +71,44 @@ export function featureDetails(feature) {
   return { ...issue, subIssues };
 }
 
-// Features oppdatert siden `since` der alle (ikke-forkastede) sub-issues er lukket.
+// NB: Søke-API-et (gh pr list --search, GraphQL search) kan ikke brukes her: GITHUB_TOKEN i Actions kan bare
+// søke i sitt eget repo. Derfor vanlige REST-lister, som virker mot det offentlige altinn-auth-repoet.
+
+// PR-er merget etter `since`, med filer (sti og antall endrede linjer).
+export function mergedPullRequestsSince(since) {
+  const pulls =
+    ghJson(["api", `repos/${SOURCE_REPO}/pulls?state=closed&sort=updated&direction=desc&per_page=100`]) ?? [];
+  return pulls
+    .filter((p) => p.merged_at && p.merged_at >= since)
+    .map((p) => ({
+      number: p.number,
+      title: p.title,
+      url: p.html_url,
+      body: p.body ?? "",
+      mergedAt: p.merged_at,
+      files: ghJson(["api", `repos/${SOURCE_REPO}/pulls/${p.number}/files?per_page=100`, "--paginate", "--slurp"])
+        .flat()
+        .map((f) => ({ path: f.filename, additions: f.additions, deletions: f.deletions })),
+    }));
+}
+
+// Features oppdatert etter `since` der alle sub-issues er lukket.
 export function completedFeaturesSince(since) {
-  const res = graphql(
-    "query($q:String!){search(query:$q,type:ISSUE,first:50){nodes{... on Issue{number title url state body " +
-      "subIssuesSummary{total completed}}}}}",
-    { q: `repo:${SOURCE_REPO} is:issue type:Feature updated:>=${since.slice(0, 10)}` },
-  );
-  return res.search.nodes.filter(
-    (f) => f.subIssuesSummary?.total > 0 && f.subIssuesSummary.completed === f.subIssuesSummary.total,
-  );
+  const issues = ghJson([
+    "api",
+    `repos/${SOURCE_REPO}/issues?state=all&since=${since}&per_page=100`,
+    "--paginate",
+    "--slurp",
+  ]).flat();
+  return issues
+    .filter((i) => !i.pull_request && i.type?.name === "Feature")
+    .filter((i) => i.sub_issues_summary?.total > 0 && i.sub_issues_summary.completed === i.sub_issues_summary.total)
+    .map((i) => ({
+      number: i.number,
+      title: i.title,
+      url: i.html_url,
+      state: i.state.toUpperCase(),
+      body: i.body ?? "",
+      subIssuesSummary: { total: i.sub_issues_summary.total, completed: i.sub_issues_summary.completed },
+    }));
 }

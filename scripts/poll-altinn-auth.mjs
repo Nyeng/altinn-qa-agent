@@ -24,6 +24,7 @@ import {
   gh,
   ghJson,
   SOURCE_REPO,
+  mergedPullRequestsSince,
 } from "./altinn.mjs";
 import { issueIntro, issueTitle } from "./issue-text.mjs";
 import { CATEGORIES, classify, isRuntimeCode } from "./pr-testability.mjs";
@@ -43,6 +44,8 @@ const AUTO = process.env.SNOKEN_AUTO !== "false";
 const AUTO_ENV = process.env.SNOKEN_AUTO_ENV || "at22";
 const AUTO_CATEGORIES = ["funksjonell", "bak-flagg"];
 const DAILY_MAX = Number(process.env.SNOKEN_DAILY_MAX || 5);
+// Automatikken ser bare på PR-er/Features fra og med denne datoen (ISO), så eldre endringer ikke testes i ettertid.
+const NOT_BEFORE = process.env.SNOKEN_NOT_BEFORE || "";
 // PR-er som ikke skal testes automatisk (vurdert manuelt), f.eks. "4725,4726".
 const SKIP_PRS = new Set(
   (process.env.SNOKEN_SKIP_PRS ?? "")
@@ -121,21 +124,7 @@ function createRequestIssue({ title, status, intro, req, key }) {
 
 // Automatisk: testbare PR-er merget i perioden.
 function registerAutoPullRequests(since) {
-  const prs =
-    ghJson([
-      "pr",
-      "list",
-      "-R",
-      SOURCE_REPO,
-      "--state",
-      "merged",
-      "--search",
-      `merged:>=${since.slice(0, 10)}`,
-      "--limit",
-      "100",
-      "--json",
-      "number,title,url,body,files",
-    ]) ?? [];
+  const prs = mergedPullRequestsSince(since);
   let n = 0;
   for (const pr of prs) {
     if (SKIP_PRS.has(String(pr.number))) continue;
@@ -174,7 +163,7 @@ function registerAutoPullRequests(since) {
     });
     n++;
   }
-  console.log(`${prs.length} PR-er merget siden ${since.slice(0, 10)}, ${n} nye testbare registrert`);
+  console.log(`${prs.length} PR-er merget siden ${since}, ${n} nye testbare registrert`);
 }
 
 // Automatisk: Features der alle sub-issues er lukket.
@@ -200,7 +189,7 @@ function registerCompletedFeatures(since) {
     });
     n++;
   }
-  console.log(`${features.length} komplette Features oppdatert siden ${since.slice(0, 10)}, ${n} nye registrert`);
+  console.log(`${features.length} komplette Features oppdatert siden ${since}, ${n} nye registrert`);
 }
 
 function registerRequests() {
@@ -481,7 +470,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
   registerRequests();
   if (AUTO) {
-    const since = new Date(Date.now() - LOOKBACK_HOURS * 3600_000).toISOString();
+    const lookback = new Date(Date.now() - LOOKBACK_HOURS * 3600_000).toISOString();
+    const since = NOT_BEFORE > lookback ? new Date(NOT_BEFORE).toISOString() : lookback;
     registerAutoPullRequests(since);
     registerCompletedFeatures(since);
   }
