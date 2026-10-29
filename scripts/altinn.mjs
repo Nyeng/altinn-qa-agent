@@ -74,7 +74,7 @@ export function featureDetails(feature) {
 // Features oppdatert siden `since` der alle (ikke-forkastede) sub-issues er lukket.
 export function completedFeaturesSince(since) {
   const res = graphql(
-    "query($q:String!){search(query:$q,type:ISSUE,first:50){nodes{... on Issue{number title url state " +
+    "query($q:String!){search(query:$q,type:ISSUE,first:50){nodes{... on Issue{number title url state body " +
       "subIssuesSummary{total completed}}}}}",
     { q: `repo:${SOURCE_REPO} is:issue type:Feature updated:>=${since.slice(0, 10)}` },
   );

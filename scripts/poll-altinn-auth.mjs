@@ -25,6 +25,7 @@ import {
   ghJson,
   SOURCE_REPO,
 } from "./altinn.mjs";
+import { issueIntro, issueTitle } from "./issue-text.mjs";
 import { CATEGORIES, classify, isRuntimeCode } from "./pr-testability.mjs";
 import { setStatus } from "./publish.mjs";
 
@@ -133,7 +134,7 @@ function registerAutoPullRequests(since) {
       "--limit",
       "100",
       "--json",
-      "number,title,url,files",
+      "number,title,url,body,files",
     ]) ?? [];
   let n = 0;
   for (const pr of prs) {
@@ -161,9 +162,15 @@ function registerAutoPullRequests(since) {
     createRequestIssue({
       key,
       req,
-      title: `🕵️ altinn-auth#${pr.number} · ${AUTO_ENV} · ${CATEGORIES[c.category].icon} ${pr.title.slice(0, 60)}`,
+      title: issueTitle({ title: pr.title, number: pr.number, env: AUTO_ENV }),
       status: "⏳ Venter på deploy",
-      intro: `Automatisk test av ${pr.url}` + (feature ? ` (Feature #${feature.number}: ${feature.title})` : ""),
+      intro: issueIntro({
+        title: pr.title,
+        body: pr.body,
+        url: pr.url,
+        kind: `${CATEGORIES[c.category].icon} PR`,
+        extra: feature ? `**Del av Feature:** [${feature.title}](${feature.url})` : undefined,
+      }),
     });
     n++;
   }
@@ -176,14 +183,20 @@ function registerCompletedFeatures(since) {
   let n = 0;
   for (const f of features) {
     const key = `auto-feature-${f.number}-${AUTO_ENV}`;
-    if (alreadyRegistered(key, `Feature altinn-auth#${f.number} · ${AUTO_ENV}`)) continue;
+    if (alreadyRegistered(key, `altinn-auth#${f.number} · ${AUTO_ENV}`)) continue;
     const req = { auto: true, isFeature: true, number: String(f.number), env: AUTO_ENV, sourceUrl: f.url, charter: "" };
     createRequestIssue({
       key,
       req,
-      title: `🕵️ Feature altinn-auth#${f.number} · ${AUTO_ENV} · ${f.title.slice(0, 60)}`,
+      title: issueTitle({ title: f.title, number: f.number, env: AUTO_ENV, isFeature: true }),
       status: "⏳ Venter på deploy av alle PR-er",
-      intro: `Automatisk test av hele Featuren ${f.url} (alle ${f.subIssuesSummary.total} sub-issues lukket)`,
+      intro: issueIntro({
+        title: f.title,
+        body: f.body,
+        url: f.url,
+        kind: "Feature",
+        extra: `Test av hele Featuren - alle ${f.subIssuesSummary.total} sub-issues er lukket.`,
+      }),
     });
     n++;
   }
@@ -206,23 +219,9 @@ function registerRequests() {
   );
 
   for (const c of requests) {
-    const existing = gh([
-      "issue",
-      "list",
-      "-R",
-      OWN_REPO,
-      "--label",
-      LABEL,
-      "--state",
-      "all",
-      "--search",
-      `${c.id} in:title`,
-      "--json",
-      "number",
-      "--jq",
-      "length",
-    ]);
-    if (existing !== "0") continue;
+    // Nøkkel i teksten; eldre issues har kommentar-id-en i tittelen.
+    const key = `manual-comment-${c.id}`;
+    if (alreadyRegistered(key, String(c.id))) continue;
 
     const number = c.issue_url.split("/").pop();
     const isPr = c.html_url.includes("/pull/");
@@ -242,32 +241,17 @@ function registerRequests() {
     // "tving" eller "kategori:<navn>" kjører også PR-er som ellers regnes som ikke testbare.
     req.force = /\btving\b|\bkategori:/i.test(req.charter);
 
-    // Issuen er bare forespørselen + én statuslinje; rapporten kommer som én kommentar (scripts/publish.mjs).
-    const body =
-      `**Status:** ${isPr ? "⏳ Venter på merge og deploy" : "⏳ Venter"}\n\n` +
-      `Forespørsel fra @${req.author}: ${req.commentUrl}\n\n**Miljø:** \`${req.env}\`\n\n` +
-      `> ${req.charter.replaceAll("\n", "\n> ") || "(standard)"}\n\n` +
-      `<!-- snoken:${JSON.stringify(req)} -->`;
-    if (DRY_RUN) {
-      log(`ville registrert ${req.sourceUrl} (${req.env}): "${req.charter.slice(0, 60)}"`);
-      continue;
-    }
-    const url = gh([
-      "issue",
-      "create",
-      "-R",
-      OWN_REPO,
-      "--label",
-      LABEL,
-      "--label",
-      WAITING,
-      "--title",
-      `🕵️ altinn-auth#${number} · ${req.env} · kommentar ${c.id}`,
-      "--body",
-      body,
-    ]);
-    justCreated.push({ number: Number(url.split("/").pop()), body, comments: [] });
-    console.log(`Registrerte ${req.commentUrl}`);
+    // Hent tittel og beskrivelse av det som skal testes, så issuen forteller hva det gjelder.
+    const source = ghJson([isPr ? "pr" : "issue", "view", number, "-R", SOURCE_REPO, "--json", "title,body,url"]);
+    createRequestIssue({
+      key,
+      req,
+      title: issueTitle({ title: source.title, number, env: req.env }),
+      status: isPr ? "⏳ Venter på merge og deploy" : "⏳ Venter",
+      intro:
+        issueIntro({ title: source.title, body: source.body, url: source.url, kind: isPr ? "PR" : "Issue" }) +
+        `\n\n**Bestilt av** @${req.author} ([kommentar](${req.commentUrl})): ${req.charter || "(standard)"}`,
+    });
   }
 }
 
