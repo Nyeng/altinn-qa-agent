@@ -1,7 +1,7 @@
 // Katalog over testbrukere i Altinn/altinn-platform-validation-tests, gruppert etter brukerflyt.
 // Hver kategori peker til CSV-filer (per miljø) og sier hvilke kolonner som er hvem.
 // Kun at22/at23/tt02 - prod-filer i repoet brukes aldri.
-import type { EnvName } from "./environments.js";
+import type { EnvName } from "../policy/environments.js";
 
 type Source = {
   // Sti relativt til repo-roten. {env} erstattes med miljønavnet.
@@ -30,7 +30,12 @@ const AT23_TT02: EnvName[] = ["at23", "tt02"];
 
 // Felles kolonneoppsett for BFF-datasettene (orgNo,partyId,ssn,userId,userPartyId,orgUuid,partyUuid,lastName)
 const BFF_USER = { pid: "ssn", userId: "userId", partyId: "userPartyId", partyUuid: "partyUuid" };
-const BFF_CONTEXT = { lastName: "etternavn", orgNo: "tilknyttet virksomhet (orgnr)", orgUuid: "virksomhetens partyUuid", partyId: "virksomhetens partyId" };
+const BFF_CONTEXT = {
+  lastName: "etternavn",
+  orgNo: "tilknyttet virksomhet (orgnr)",
+  orgUuid: "virksomhetens partyUuid",
+  partyId: "virksomhetens partyId",
+};
 
 export const CATEGORIES: Category[] = [
   {
@@ -147,7 +152,10 @@ export const CATEGORIES: Category[] = [
       "Gull for tilgangskontroll: prøv å nå unreachablePartyUuid.",
     sources: [
       { path: `${K6}/access-management/resource-owner/authorized-parties/party-filter/{env}.csv`, envs: ALL },
-      { path: `${K6}/access-management/resource-owner/authorized-parties/clients-and-key-role-parties/{env}.csv`, envs: ALL },
+      {
+        path: `${K6}/access-management/resource-owner/authorized-parties/clients-and-key-role-parties/{env}.csv`,
+        envs: ALL,
+      },
       { path: `${K6}/access-management/resource-owner/authorized-parties/key-role-filter/{env}.csv`, envs: ALL },
     ],
     pid: "pid",

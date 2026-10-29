@@ -12,13 +12,13 @@ mot API-ene i testmiljøet, med Claude API. Resultatet er en kort rapport: hva s
 
 ## Hva testes
 
-| | Kategori | Andel av PR-er | Kjøres |
-|---|---|---:|:-:|
-| 🟢 | Funksjonell endring | ~10 % | ✅ |
-| 🟡 | Bak feature-flagg | ~4 % | ✅ |
-| 🟠 | Teknisk endring i kode | ~18 % | ❌ dekkes av eksisterende tester |
-| 🔵 | Deploy/infrastruktur | ~19 % | ❌ dekkes av eksisterende tester |
-| ⚪ | CI, tester, dokumentasjon | ~50 % | ❌ |
+|     | Kategori                  | Andel av PR-er |              Kjøres              |
+| --- | ------------------------- | -------------: | :------------------------------: |
+| 🟢  | Funksjonell endring       |          ~10 % |                ✅                |
+| 🟡  | Bak feature-flagg         |           ~4 % |                ✅                |
+| 🟠  | Teknisk endring i kode    |          ~18 % | ❌ dekkes av eksisterende tester |
+| 🔵  | Deploy/infrastruktur      |          ~19 % | ❌ dekkes av eksisterende tester |
+| ⚪  | CI, tester, dokumentasjon |          ~50 % |                ❌                |
 
 Basert på de 80 siste mergede PR-ene. Klassifiseringen ligger i [`scripts/pr-testability.mjs`](scripts/pr-testability.mjs).
 

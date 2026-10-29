@@ -1,4 +1,5 @@
-// Felles oppslag mot Altinn/altinn-auth (kun lesing, offentlig repo).
+// Felles hjelpere for skriptene: gh-CLI-kall og oppslag mot Altinn/altinn-auth (kun lesing, offentlig repo).
+// Skriptene kjøres med ren node i GitHub Actions (uten npm install), derfor JavaScript uten avhengigheter.
 // Hierarkiet følger ADR-0004: Epic → Feature (historie + akseptansekriterier) → sub-issues → PR-er som lukker dem.
 import { execFileSync } from "node:child_process";
 
@@ -61,7 +62,10 @@ export function featureDetails(feature) {
       stateReason: s.stateReason,
       // Bare PR-er i altinn-auth kan deploy-sjekkes herfra (frontend m.fl. ligger i andre repoer).
       pr: closer?.repository?.nameWithOwner === SOURCE_REPO ? closer.number : undefined,
-      externalPr: closer && closer.repository?.nameWithOwner !== SOURCE_REPO ? `${closer.repository?.nameWithOwner}#${closer.number}` : undefined,
+      externalPr:
+        closer && closer.repository?.nameWithOwner !== SOURCE_REPO
+          ? `${closer.repository?.nameWithOwner}#${closer.number}`
+          : undefined,
     };
   });
   return { ...issue, subIssues };
@@ -74,5 +78,7 @@ export function completedFeaturesSince(since) {
       "subIssuesSummary{total completed}}}}}",
     { q: `repo:${SOURCE_REPO} is:issue type:Feature updated:>=${since.slice(0, 10)}` },
   );
-  return res.search.nodes.filter((f) => f.subIssuesSummary?.total > 0 && f.subIssuesSummary.completed === f.subIssuesSummary.total);
+  return res.search.nodes.filter(
+    (f) => f.subIssuesSummary?.total > 0 && f.subIssuesSummary.completed === f.subIssuesSummary.total,
+  );
 }

@@ -5,11 +5,12 @@
   "description": "Utforskende QA-agent for Altinn 3-apper, bygget på Claude API",
   "type": "module",
   "scripts": {
+    "explore": "tsx --env-file-if-exists=.env src/explore.ts",
     "typecheck": "tsc --noEmit",
-    "explore:at22": "tsx --env-file-if-exists=.env src/explore.ts --env=at22",
-    "explore:at23": "tsx --env-file-if-exists=.env src/explore.ts --env=at23",
-    "explore:tt02": "tsx --env-file-if-exists=.env src/explore.ts --env=tt02",
-    "explore": "tsx --env-file-if-exists=.env src/explore.ts"
+    "test": "tsx --test test/*.test.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run typecheck && npm test && npm run format:check"
   },
   "engines": {
     "node": ">=22"
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
+    "prettier": "^3.9.10",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }

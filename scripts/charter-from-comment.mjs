@@ -4,9 +4,8 @@
 // testbarhetskategori som kontekst. "kategori:<navn>" i teksten overstyrer kategorien.
 // Kjøres i GitHub Action. Leser COMMENT_BODY, IS_PR, NUMBER, PR_REF fra miljøet.
 // Skriver reports/charter.md og reports/title.txt (overskrift i rapporten).
-import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
-import { featureDetails, featureOf } from "./altinn.mjs";
+import { closingIssues, featureDetails, featureOf, gh } from "./altinn.mjs";
 import { CATEGORIES, classify } from "./pr-testability.mjs";
 
 const MAX_DIFF_CHARS = 20000;
@@ -29,25 +28,11 @@ let charter =
     "tilgangskontrollfeil, valideringshull, uventede statuskoder og feilmeldinger som lekker interne detaljer.";
 let title = "";
 
-function gh(args) {
-  return execFileSync("gh", args, { encoding: "utf8", maxBuffer: 20e6 });
-}
-
-// Issuene en PR lukker (Resolves/Fixes #N) - beste kilde til akseptansekriterier.
-function closingIssues(repo, number) {
-  const [owner, name] = repo.split("/");
-  const query =
-    "query($o:String!,$n:String!,$pr:Int!){repository(owner:$o,name:$n){pullRequest(number:$pr){" +
-    "closingIssuesReferences(first:3){nodes{number title body url}}}}}";
-  const res = JSON.parse(gh(["api", "graphql", "-f", `query=${query}`, "-F", `o=${owner}`, "-F", `n=${name}`, "-F", `pr=${number}`]));
-  return res.data?.repository?.pullRequest?.closingIssuesReferences?.nodes ?? [];
-}
-
 function prContext(repo, number) {
   const meta = JSON.parse(gh(["pr", "view", String(number), "-R", repo, "--json", "title,body,url,state,files"]));
   const diff = gh(["pr", "diff", String(number), "-R", repo]);
   const shown = diff.length > MAX_DIFF_CHARS ? `${diff.slice(0, MAX_DIFF_CHARS)}\n... [avkortet]` : diff;
-  const issues = closingIssues(repo, number);
+  const issues = closingIssues(Number(number));
   // Akseptansekriteriene står normalt på Featuren over issuet (ADR-0004).
   const feature = issues.map((i) => featureOf(i.number)).find(Boolean);
 
@@ -79,7 +64,10 @@ function featureContext(number) {
   const f = featureDetails(number);
   title = `Feature #${number}`;
   const subs = f.subIssues
-    .map((s) => `- #${s.number} ${s.title} (${s.state}${s.pr ? `, PR #${s.pr}` : s.externalPr ? `, ${s.externalPr}` : ""})`)
+    .map(
+      (s) =>
+        `- #${s.number} ${s.title} (${s.state}${s.pr ? `, PR #${s.pr}` : s.externalPr ? `, ${s.externalPr}` : ""})`,
+    )
     .join("\n");
   return (
     "\n\nKategori: ende-til-ende-test av en hel Feature. Verifiser HVERT akseptansekriterium i Featuren mot API-ene. " +

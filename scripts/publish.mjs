@@ -5,21 +5,24 @@
 // Bruk: node scripts/publish.mjs report <issue> <fil>    (oppdaterer/oppretter rapportkommentaren)
 //       node scripts/publish.mjs status <issue> <tekst>  (oppdaterer statuslinjen i issueteksten)
 // Leser GH_TOKEN og GITHUB_REPOSITORY fra miljøet.
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { gh } from "./altinn.mjs";
 
 const REPO = process.env.GITHUB_REPOSITORY ?? "Nyeng/altinn-qa-agent";
 const REPORT_MARKER = "<!-- snoken-rapport -->";
 const STATUS_RE = /^\*\*Status:\*\*.*$/m;
 
-const gh = (args, input) => execFileSync("gh", args, { encoding: "utf8", input, maxBuffer: 20e6 }).trim();
-
 export function upsertReport(issue, body) {
   const text = `${REPORT_MARKER}\n${body}`;
-  const comments = JSON.parse(gh(["api", `repos/${REPO}/issues/${issue}/comments?per_page=100`, "--paginate", "--slurp"])).flat();
+  const comments = JSON.parse(
+    gh(["api", `repos/${REPO}/issues/${issue}/comments?per_page=100`, "--paginate", "--slurp"]),
+  ).flat();
   const existing = comments.find((c) => c.body?.startsWith(REPORT_MARKER));
   if (existing) {
-    gh(["api", "-X", "PATCH", `repos/${REPO}/issues/comments/${existing.id}`, "--input", "-"], JSON.stringify({ body: text }));
+    gh(
+      ["api", "-X", "PATCH", `repos/${REPO}/issues/comments/${existing.id}`, "--input", "-"],
+      JSON.stringify({ body: text }),
+    );
   } else {
     gh(["api", "-X", "POST", `repos/${REPO}/issues/${issue}/comments`, "--input", "-"], JSON.stringify({ body: text }));
   }
