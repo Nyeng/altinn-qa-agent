@@ -60,7 +60,7 @@ Presisjon:
 Testbrukere (syntetiske, fra altinn-platform-validation-tests), gruppert etter brukerflyt.
 Hent sluttbrukere med pick_test_user og bytt med switch_user. To brukere gjør det mulig å teste om den ene
 når den andres data.
-${categories.map((c) => `- ${c.id}: ${c.flow}`).join("\n")}
+${categories.map((c) => `- ${c.id}: ${c.flow}${c.setup ? `\n  Oppsett: ${c.setup}` : ""}`).join("\n")}
 
 Tjenesteeier: for ressursregisteret (opprette/endre ressurser) bruker du use_service_owner (TTD).
 Ressurser du oppretter skal ha identifikator snoken-<noe unikt>, og du skal slette dem igjen før økten er ferdig.

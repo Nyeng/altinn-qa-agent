@@ -21,6 +21,8 @@ export type Category = {
   partyUuid?: string; // brukerens egen partyUuid - sendes til token generator
   // Andre kolonner Son of Vegard får se, med forklaring (f.eks. parter brukeren IKKE skal nå).
   context: Record<string, string>;
+  // Hvordan testdata som ikke ligger ferdig i datasettet, settes opp (vises i prompten).
+  setup?: string;
 };
 
 const K6 = "K6/testdata";
@@ -78,6 +80,13 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: "klientadministrasjon",
+    setup:
+      "Klientrelasjoner finnes ikke ferdig i testdataene (clientUuid/agentUuid er tomme med vilje) - sett dem opp " +
+      "slik K6 gjør (client-delegations-v2/delegate-and-remove-resource.js, setUpClientRelation): hent en ANNEN " +
+      "bruker fra kategorien som klient, og som den brukeren: POST connections?party=<klientens orgUuid>&to=<firmaets " +
+      "orgUuid>, finn delegerbar read-rettighet med delegationcheck, og deleger ressursen (CreateResourceRights). " +
+      "Da står klienten hos firmaet med rollen rettighetshaver. Agenter: kategorien klient-agent. " +
+      'Slå opp endepunktene med api_reference "access-management connections" og "client-delegation".',
     name: "Klientadministrasjon (regnskapsfører/revisor)",
     flow: "Brukere i firma med klientforhold - delegerer klienttilganger til ansatte (agenter).",
     sources: [
