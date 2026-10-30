@@ -1,7 +1,7 @@
 // Frontend-QA: finner PR-er i altinn-access-management-frontend som er klare for GUI-test.
 //   - merget de siste LOOKBACK_DAYS dagene
 //   - synlig ny funksjonalitet (ikke avhengigheter, refaktorering, tester, CI, Storybook)
-//   - deployet til miljøet (AMF registrerer deployments som AT22/AT23/TT02 med commit)
+//   - deployet til miljøet (vellykket kjøring av deploy-workflowen, ikke deployment-poster)
 //   - ikke allerede testet (rapport finnes i reports/gui/<nøkkel>.md)
 // Skriver JSON-liste til stdout. Leser bare fra GitHub (gh), skriver ingenting dit.
 //
@@ -27,10 +27,29 @@ export function isUiFeature(pr) {
   return pr.files.some((f) => UI_CODE.test(f.path));
 }
 
+// Deployment-poster i AMF kan ikke brukes: Playwright-jobbene kjører med `environment: AT23/TT02` og lager egne
+// poster. Derfor regnes bare vellykkede kjøringer av deploy-workflowene som deploy.
+const DEPLOY_WORKFLOW = { at22: "deploy-at.yml", at23: "deploy-at.yml", tt02: "deploy-release.yml" };
+let deployedShas;
 function isDeployed(mergeSha) {
-  const deployments = ghJson(["api", `repos/${REPO}/deployments?environment=${env.toUpperCase()}&per_page=10`]) ?? [];
-  return deployments.some((d) => {
-    const cmp = ghJson(["api", `repos/${REPO}/compare/${mergeSha}...${d.sha}`]);
+  deployedShas ??= (
+    ghJson([
+      "run",
+      "list",
+      "-R",
+      REPO,
+      "--workflow",
+      DEPLOY_WORKFLOW[env],
+      "--status",
+      "success",
+      "--limit",
+      "10",
+      "--json",
+      "headSha",
+    ]) ?? []
+  ).map((r) => r.headSha);
+  return deployedShas.some((sha) => {
+    const cmp = ghJson(["api", `repos/${REPO}/compare/${mergeSha}...${sha}`]);
     return cmp.status === "ahead" || cmp.status === "identical";
   });
 }
