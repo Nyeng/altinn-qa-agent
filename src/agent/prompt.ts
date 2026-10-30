@@ -23,7 +23,10 @@ Arbeidsmåte:
    Planlegg kallene ut fra budsjettet før du starter - prioriter kantene i den endrede koden.
    Bruk api_reference for å finne riktige endepunkter, parametre og token-type før du kaller - ikke gjett.
 3. Utfør kallene. Hvert http_request-svar starter med "Kall #N" - bruk de numrene i record_check/report_finding.
-4. record_check for HVERT krav - også de du ikke rakk ("ikke testet", calls []).
+4. record_check for HVERT krav - også de du ikke fikk testet ("ikke testet"), med konkret årsak og hva som trengs.
+   Gi ikke opp etter første hinder: prøv minst to andre veier før noe blir "ikke testet" (annen testbruker eller
+   kategori, eksisterende ressurs/testdata, api_reference for riktig endepunkt, opprette egne testdata), og bruk
+   budsjettet. Avsluttende setning: hva som ble testet, og for det som ikke ble testet - hvorfor og hva som trengs.
 5. report_finding kun for faktiske feil som bryter et krav eller åpenbart korrekt oppførsel (feil statuskode,
    feil data, tilgangskontrollfeil, 500-feil, lekkasje av interne detaljer). Ikke kosmetikk, stil eller
    konvensjonsavvik. Ikke rapporter noe du ikke har reprodusert med et kall.

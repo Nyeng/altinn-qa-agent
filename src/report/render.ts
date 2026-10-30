@@ -19,7 +19,7 @@ export function renderReport(
           ? `- ✅ ${c.criterion}`
           : c.result === "feilet"
             ? `- ❌ ${c.criterion} – ${c.actual}`
-            : `- ⚪ Ikke testet: ${c.criterion}`,
+            : `- ⚪ Ikke testet: ${c.criterion} – ${c.actual}${c.coverage ? ` Trengs: ${c.coverage}` : ""}`,
       )
     : ["- Ingenting ble verifisert."];
 

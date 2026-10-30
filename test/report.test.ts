@@ -57,7 +57,7 @@ describe("rapport", () => {
     });
     assert.match(md, /^### 🕵️ PR #1 🟢 · at22/);
     assert.match(md, /- ✅ Tom side har ikke next/);
-    assert.match(md, /- ⚪ Ikke testet: PUT trimmer/);
+    assert.match(md, /- ⚪ Ikke testet: PUT trimmer – /);
     assert.match(md, /🐞 \*\*500 ved mellomrom\*\*/);
     assert.match(md, /curl -i -X POST 'https:\/\/platform\.at22\.altinn\.cloud\/r'/);
     assert.match(md, /claude-sonnet-5-5 · 1 kall · \$0\.07 · \[logg\]\(https:\/\/run\)/);

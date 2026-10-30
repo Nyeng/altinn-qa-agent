@@ -178,3 +178,34 @@ describe("http_burst", () => {
     assert.equal(sent.length, 0);
   });
 });
+
+describe("filopplasting", () => {
+  it("sender file som ekte multipart/form-data", async () => {
+    const { session, sent } = testSession(() => json({}, 201));
+    const tools = createTools(session);
+    await runTool(
+      tools,
+      "use_service_owner",
+      { owner: "ttd", scopes: ["altinn:resourceregistry/resource.write"] },
+      session,
+    );
+    const out = await runTool(
+      tools,
+      "http_request",
+      {
+        method: "POST",
+        path: "/resourceregistry/api/v1/resource/snoken-x/policy",
+        why: "policy",
+        file: { field: "policyFile", filename: "policy.xml", contentType: "application/xml", content: "<Policy/>" },
+      },
+      session,
+    );
+    assert.equal(out.isError, undefined);
+    const body = sent[0].body as unknown;
+    assert.ok(body instanceof FormData);
+    const file = (body as FormData).get("policyFile") as File;
+    assert.equal(file.name, "policy.xml");
+    assert.equal(await file.text(), "<Policy/>");
+    assert.equal(sent[0].headers["content-type"], undefined); // fetch setter multipart-boundary selv
+  });
+});

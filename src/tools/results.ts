@@ -15,7 +15,11 @@ export const recordCheck = defineTool({
     "`coverage`: hvordan kallene traff den ENDREDE kodestien (f.eks. 'limit=2 ga 4 sider, siste side full'). " +
     "Kan du ikke forklare det, er result 'ikke testet'. " +
     "`source`: f.eks. 'issue #4732', 'PR-beskrivelse' eller 'utledet'. `actual`: én kort setning om hva svaret viste. " +
-    "`calls`: kall-ID-ene (#) som beviser resultatet. Krav du ikke rakk: result 'ikke testet' og calls [].",
+    "`calls`: kall-ID-ene (#) som beviser resultatet.\n" +
+    "Ved 'ikke testet' gjelder egne krav til innholdet (det vises i rapporten): `actual` = konkret årsak, med " +
+    "kall-ID (f.eks. 'PDP svarte Indeterminate (#6, #7) fordi ressursen mangler policy'), og `coverage` = hva som " +
+    "skal til for å teste (f.eks. 'en ressurs med policy for read', 'to samtidige kall', 'firma med klient'). " +
+    "Aldri generiske formuleringer som 'rakk ikke'.",
   strict: true,
   input: z.strictObject({
     criterion: z.string(),

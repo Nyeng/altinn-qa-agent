@@ -12,6 +12,13 @@ const RESPONSE_EXCERPT_CHARS = 1500;
 const TIMEOUT_MS = 30_000;
 const SHOWN_HEADERS = ["content-type", "location", "www-authenticate"];
 
+const FILE_SCHEMA = z.strictObject({
+  field: z.string().describe('Feltnavn i skjemaet, f.eks. "policyFile"'),
+  filename: z.string(),
+  contentType: z.string().describe('F.eks. "application/xml"'),
+  content: z.string(),
+});
+
 const FIELDS_HELP = "'a.b' felt, 'data.#' antall, 'data[0]'/'data[-1]' første/siste, 'data[*].id' alle id-er.";
 
 export function createHttpTools(config: Config): Tool[] {
@@ -38,6 +45,10 @@ export function createHttpTools(config: Config): Tool[] {
         .optional()
         .describe("Ekstra headere, f.eks. Content-Type. Ikke send Authorization."),
       body: z.string().optional().describe("Request-body som tekst (typisk JSON eller XML)"),
+      file: FILE_SCHEMA.optional().describe(
+        "Filopplasting (multipart/form-data), f.eks. en XACML-policy: field, filename, contentType og content. " +
+          "Bruk denne i stedet for å bygge multipart selv i body.",
+      ),
       why: z.string().describe("Kort: hva du vil lære av denne forespørselen"),
       fields: z
         .array(z.string())
@@ -95,12 +106,15 @@ export function createHttpTools(config: Config): Tool[] {
   return [httpRequest, httpBurst, inspectCall];
 }
 
+type FileUpload = { field: string; filename: string; contentType: string; content: string };
+
 type HttpInput = {
   api: string;
   method: (typeof METHODS)[number];
   path: string;
   headers?: Record<string, string>;
   body?: string;
+  file?: FileUpload;
   why: string;
   fields?: string[];
 };
@@ -160,7 +174,11 @@ async function send(input: HttpInput, prep: Prepared, session: Session): Promise
       path: input.path,
       url: prep.url.href,
       requestHeaders: prep.loggedHeaders,
-      requestBody: input.body && redact(input.body),
+      requestBody: input.file
+        ? redact(
+            `[multipart: ${input.file.field}=${input.file.filename} (${input.file.contentType})]\n${input.file.content}`,
+          )
+        : input.body && redact(input.body),
       status,
       contentType,
       responseExcerpt: redact(response.slice(0, RESPONSE_EXCERPT_CHARS)),
@@ -171,11 +189,23 @@ async function send(input: HttpInput, prep: Prepared, session: Session): Promise
   try {
     const headers = new Headers(prep.headers);
     headers.set("authorization", `Bearer ${await session.tokens.tokenFor(prep.user)}`);
+    // Filopplasting: fetch bygger multipart med riktig boundary og CRLF - modellen skal ikke gjøre det for hånd.
+    let body: BodyInit | undefined = input.body;
+    if (input.file) {
+      const form = new FormData();
+      form.append(
+        input.file.field,
+        new Blob([input.file.content], { type: input.file.contentType }),
+        input.file.filename,
+      );
+      body = form;
+      headers.delete("content-type");
+    }
     for (const rule of prep.rules) for (const [name, value] of Object.entries(rule.headers)) headers.set(name, value);
     const res = await session.fetch(prep.url, {
       method: input.method,
       headers,
-      body: input.body,
+      body,
       redirect: "manual",
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
