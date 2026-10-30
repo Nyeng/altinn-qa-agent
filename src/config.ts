@@ -20,7 +20,8 @@ export type Config = {
   model: string;
   effort: Effort;
   maxSteps: number;
-  maxSessionTokens: number;
+  /** Kostnadstak per økt i USD (estimert). Cache-lesing koster lite og skal ikke stoppe en billig økt. */
+  maxSessionUsd: number;
   env: EnvName;
   allowDelete: boolean;
   apis: Record<string, ApiTarget>;
@@ -81,7 +82,7 @@ export function loadConfig(argv: string[] = process.argv, env: NodeJS.ProcessEnv
     // Per kjøring (QA_MAX_STEPS i miljøet) > miljøkonfigen > 25
     maxSteps: Number(env.QA_MAX_STEPS || file.QA_MAX_STEPS || 30),
     // Tokentaket følger stegbudsjettet (15 000 per steg, minst 400 000) - den egentlige kostnadsgrensen.
-    maxSessionTokens: Number(env.QA_MAX_SESSION_TOKENS || 0) || tokenCap(env, file),
+    maxSessionUsd: Number(env.QA_MAX_SESSION_USD || 0) || costCap(env, file),
     env: envName,
     allowDelete: String(file.QA_ALLOW_DELETE) === "true",
     apis,
@@ -101,9 +102,10 @@ export function loadConfig(argv: string[] = process.argv, env: NodeJS.ProcessEnv
   };
 }
 
-function tokenCap(env: NodeJS.ProcessEnv, file: EnvFile): number {
+// Kostnadstaket følger stegbudsjettet: $0.02 per steg, minst $0.50 (30 steg → $0.60, 60 steg → $1.20).
+function costCap(env: NodeJS.ProcessEnv, file: EnvFile): number {
   const steps = Number(env.QA_MAX_STEPS || file.QA_MAX_STEPS || 30);
-  return Math.max(400_000, steps * 15_000);
+  return Math.max(0.5, steps * 0.02);
 }
 
 // Miljø velges med --env=at22 på kommandolinjen, ellers QA_ENV.

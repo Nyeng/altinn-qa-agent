@@ -84,6 +84,35 @@ describe("agentløkka", () => {
     assert.equal(result.stopReason, "timebox");
   });
 
+  it("lar modellen registrere krav etter at budsjettet er brukt opp, men avviser nye handlinger", async () => {
+    const { session } = testSession();
+    session.config.maxSteps = 1;
+    const check = {
+      criterion: "k",
+      coverage: "c",
+      source: "utledet",
+      result: "ikke testet",
+      expected: "e",
+      actual: "a",
+      calls: [],
+    };
+    const { client, requests } = scriptedClient([
+      { stop: "tool_use", content: [toolUse("t1", "switch_user", { alias: "x" })] },
+      {
+        stop: "tool_use",
+        content: [toolUse("t2", "record_check", check), toolUse("t3", "switch_user", { alias: "y" })],
+      },
+      { stop: "end_turn", content: [{ type: "text", text: "Oppsummert." }] },
+    ]);
+
+    const result = await runAgent({ client, session, tools: createTools(session), system: "s", charter: "c" });
+
+    assert.equal(result.checks.length, 1);
+    const results = requests[2].messages.at(-1)!.content as Anthropic.Beta.BetaToolResultBlockParam[];
+    assert.equal(results.find((r) => r.tool_use_id === "t3")?.is_error, true);
+    assert.equal(result.summary, "Oppsummert.");
+  });
+
   it("sender stabil systemprompt og verktøyliste med cache_control", async () => {
     const { session } = testSession();
     const { client, requests } = scriptedClient([]);

@@ -32,6 +32,7 @@ export type AgentResult = {
 };
 
 const MAX_OUTPUT_TOKENS = 16_000;
+const MAX_WRAP_UP_ROUNDS = 2;
 
 export async function runAgent(opts: {
   client: MessagesClient;
@@ -47,6 +48,7 @@ export async function runAgent(opts: {
   const usage: Usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   let steps = 0;
   let wrapUpRequested = false;
+  let wrapUpRounds = 0;
   let summary = "";
   let stopReason = "";
 
@@ -90,7 +92,11 @@ export async function runAgent(opts: {
 
     if (response.stop_reason === "pause_turn") continue;
     if (response.stop_reason !== "tool_use") break; // end_turn, max_tokens, refusal ...
-    if (wrapUpRequested) {
+    const isStep = (name: string) => tools.find((t) => t.name === name)?.countsAsStep !== false;
+    const toolUses = response.content.filter((b) => b.type === "tool_use");
+    // Etter at budsjettet er brukt opp, får modellen fortsatt registrere krav og funn (record_check,
+    // report_finding) - ellers mister rapporten det som faktisk ble testet. Nye handlinger avvises.
+    if (wrapUpRequested && (wrapUpRounds++ >= MAX_WRAP_UP_ROUNDS || toolUses.every((b) => isStep(b.name)))) {
       stopReason = "timebox";
       onEvent({ type: "wrap-up", reason: "avslutter uten flere verktøykall" });
       break;
@@ -100,21 +106,34 @@ export async function runAgent(opts: {
     const results: Anthropic.Beta.BetaContentBlockParam[] = [];
     for (const block of response.content) {
       if (block.type !== "tool_use") continue;
+      if (wrapUpRequested && isStep(block.name)) {
+        results.push({
+          type: "tool_result",
+          tool_use_id: block.id,
+          content:
+            "Budsjettet er brukt opp - ingen nye handlinger. Registrer resultatene med record_check/report_finding.",
+          is_error: true,
+        });
+        continue;
+      }
       // Bare handlinger teller som steg - oppslag (api_reference, inspect_call) og registrering
       // (record_check, report_finding) skal ikke spise av budsjettet for selve testingen.
-      if (tools.find((t) => t.name === block.name)?.countsAsStep !== false) steps++;
+      if (isStep(block.name)) steps++;
       const out = await runTool(tools, block.name, block.input, session);
       onEvent({ type: "tool", label: out.label, isError: Boolean(out.isError) });
       results.push({ type: "tool_result", tool_use_id: block.id, content: out.content, is_error: out.isError });
     }
 
-    const reason = limitReached(steps, usage, config.maxSteps, config.maxSessionTokens);
+    const reason = wrapUpRequested ? undefined : limitReached(steps, usage, config);
     if (reason) {
       wrapUpRequested = true;
       onEvent({ type: "wrap-up", reason });
       results.push({
         type: "text",
-        text: `Tidsboksen er brukt opp (${reason}). Ikke gjør flere verktøykall - skriv oppsummeringen nå.`,
+        text:
+          `Tidsboksen er brukt opp (${reason}). Ikke gjør flere handlinger. Registrer nå ALLE krav med ` +
+          `record_check (og ev. funn med report_finding) - også det du ikke rakk, med konkret årsak - og skriv ` +
+          `deretter oppsummeringen.`,
       });
     }
     messages.push({ role: "user", content: results });
@@ -133,9 +152,9 @@ export async function runAgent(opts: {
   };
 }
 
-function limitReached(steps: number, usage: Usage, maxSteps: number, maxTokens: number): string | undefined {
-  if (steps >= maxSteps) return `maks ${maxSteps} verktøykall`;
-  const tokens = usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
-  if (tokens >= maxTokens) return `tokentaket på ${maxTokens.toLocaleString("nb-NO")}`;
+function limitReached(steps: number, usage: Usage, config: Session["config"]): string | undefined {
+  if (steps >= config.maxSteps) return `maks ${config.maxSteps} handlinger`;
+  const cost = estimateCostUsd(config.model, usage);
+  if (cost >= config.maxSessionUsd) return `kostnadstaket på $${config.maxSessionUsd.toFixed(2)}`;
   return undefined;
 }
