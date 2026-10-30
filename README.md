@@ -51,6 +51,12 @@ cp .env.example .env   # ANTHROPIC_API_KEY, TOKEN_GENERATOR_USERNAME/PASSWORD
 npm run explore -- --env=at22 charters/01-autoriserte-parter-og-delegering.md
 ```
 
+## GUI-test lokalt
+
+Frontend (altinn-access-management-frontend) testes lokalt i Claude Code på eget abonnement – ikke via GitHub.
+Åpne Claude Code i dette repoet og kjør `/son-of-vegard-gui <PR-lenke> at23`. Nettleseren (Playwright MCP) er
+konfigurert i [`.mcp.json`](.mcp.json) med prod blokkert; testbrukere hentes med `npx tsx scripts/testuser.mts`.
+
 ## Sikkerhet
 
 - Kun testmiljøene at22, at23 og tt02.
