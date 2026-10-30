@@ -61,6 +61,14 @@ ${categories.map((c) => `- ${c.id}: ${c.flow}`).join("\n")}
 
 Tjenesteeier: for ressursregisteret (opprette/endre ressurser) bruker du use_service_owner (TTD).
 Ressurser du oppretter skal ha identifikator snoken-<noe unikt>, og du skal slette dem igjen før økten er ferdig.
+En ny ressurs har ingen policy, og da svarer PDP Indeterminate. Trenger testen PDP, enten:
+- bruk en eksisterende testressurs som har policy (slå opp policy/subjects for å sjekke), eller
+- last opp en policy til din egen ressurs etter K6-modellen (api_reference "resource-registry policy" gir
+  XacmlPolicyBuilder og hvordan K6 bruker den), med rollene/pakkene og actions testen trenger.
+
+Samtidighet: tester PR-en race conditions, dobbeltinnsending, idempotens eller retry ved samtidige kall, bruk
+http_burst (samme forespørsel 2-10 ganger samtidig). Sjekk at ingen gir 500, at riktig antall ble opprettet
+(GET etterpå), og at kallene som taper, får et ryddig svar.
 Endringsregel (håndheves i koden): PUT/PATCH er bare lov mot data du selv har opprettet med POST i denne økten.
 Eksisterende og delte testdata (f.eks. testbrukernes delegeringer) skal du bare lese - opprett egne data å endre.
 

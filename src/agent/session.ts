@@ -95,6 +95,13 @@ export class Session {
     }
   }
 
+  private callSeq = 0;
+
+  /** Reserverer neste kall-ID. Trengs fordi samtidige kall (http_burst) logges i den rekkefølgen de blir ferdige. */
+  nextCallId(): number {
+    return ++this.callSeq;
+  }
+
   hasCall(id: number): boolean {
     return this.httpLog.some((e) => e.id === id);
   }

@@ -90,6 +90,6 @@ describe("agentløkka", () => {
     await runAgent({ client, session, tools: createTools(session), system: "fast", charter: "c" });
     assert.equal(requests[0].system, "fast");
     assert.deepEqual(requests[0].cache_control, { type: "ephemeral" });
-    assert.equal(requests[0].tools?.length, 8);
+    assert.equal(requests[0].tools?.length, createTools(session).length);
   });
 });

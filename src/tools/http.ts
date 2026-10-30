@@ -1,4 +1,4 @@
-// http_request og inspect_call - agentens "hender" mot API-ene. Sikkerhetsreglene ligger i policy/requests.ts.
+// http_request, http_burst og inspect_call - agentens "hender" mot API-ene. Sikkerhetsreglene ligger i policy/requests.ts.
 // Token og hemmelige headere (API-nøkler) legges på her og vaskes ut av alt som går tilbake til modellen.
 import { z } from "zod";
 import type { HttpLogEntry, Session } from "../agent/session.js";
@@ -48,6 +48,31 @@ export function createHttpTools(config: Config): Tool[] {
     run: (input, session) => sendRequest(input, session),
   });
 
+  const httpBurst = defineTool({
+    name: "http_burst",
+    description:
+      "Send SAMME forespørsel N ganger samtidig (2-10) - for race conditions, samtidighet, idempotens og " +
+      "dobbeltinnsending (f.eks. to like delegeringer på en gang). Samme regler, autentisering og nøkler som " +
+      "http_request. Svaret viser statusfordelingen og hvert kall (#ID), så du kan sjekke: ingen 500, riktig " +
+      "antall opprettet (verifiser med GET etterpå), og at taperne får et ryddig svar. Bruk bare når samtidighet " +
+      "er det som testes.",
+    input: z.strictObject({
+      api: z.enum(apiNames).default("platform"),
+      method: z.enum(METHODS),
+      path: z.string().startsWith("/"),
+      headers: z.record(z.string(), z.string()).optional(),
+      body: z.string().optional(),
+      count: z.number().int().describe("Antall samtidige kall, 2-10"),
+      why: z.string(),
+      fields: z.array(z.string()).optional(),
+    }),
+    label: (i) => `⚡ ${i.count}× ${i.api} ${i.method} ${i.path}  — ${i.why}`,
+    run: (input, session) => {
+      if (input.count < 2 || input.count > 10) return { content: "count må være mellom 2 og 10.", isError: true };
+      return sendBurst(input, session);
+    },
+  });
+
   const inspectCall = defineTool({
     name: "inspect_call",
     countsAsStep: false,
@@ -67,7 +92,7 @@ export function createHttpTools(config: Config): Tool[] {
     },
   });
 
-  return [httpRequest, inspectCall];
+  return [httpRequest, httpBurst, inspectCall];
 }
 
 type HttpInput = {
@@ -80,11 +105,22 @@ type HttpInput = {
   fields?: string[];
 };
 
-async function sendRequest(input: HttpInput, session: Session): Promise<ToolOutput> {
+type Prepared = {
+  user: NonNullable<Session["users"]["active"]>;
+  url: URL;
+  headers: Headers;
+  rules: Config["apis"][string]["headerRules"];
+  loggedHeaders: Record<string, string>;
+};
+
+type Sent = { id: number; ms: number; res?: Response; text: string; error?: string };
+
+/** Sikkerhetssjekk og headere - felles for http_request og http_burst. Returnerer feilmelding hvis ikke lov. */
+function prepare(input: HttpInput, session: Session): Prepared | string {
   const user = session.users.active;
-  if (!user) return { content: "Ingen aktiv bruker. Hent en med pick_test_user først.", isError: true };
+  if (!user) return "Ingen aktiv bruker. Hent en med pick_test_user først.";
   const api = session.config.apis[input.api];
-  if (!api) return { content: `Ukjent API "${input.api}".`, isError: true };
+  if (!api) return `Ukjent API "${input.api}".`;
 
   const url = resolveUrl(api.baseUrl, input.path);
   const denied = checkRequest({
@@ -94,7 +130,7 @@ async function sendRequest(input: HttpInput, session: Session): Promise<ToolOutp
     allowDelete: session.config.allowDelete,
     owned: session.owned,
   });
-  if (denied) return { content: denied, isError: true };
+  if (denied) return denied;
 
   // Modellen får ikke sette auth eller noen av de hemmelige headerne selv.
   const headers = new Headers(input.headers);
@@ -106,20 +142,24 @@ async function sendRequest(input: HttpInput, session: Session): Promise<ToolOutp
   const rules = api.headerRules.filter((r) => relativePath.startsWith(r.pathPrefix));
   const loggedHeaders: Record<string, string> = Object.fromEntries(headers.entries());
   for (const rule of rules) for (const name of Object.keys(rule.headers)) loggedHeaders[name] = `<${rule.secretName}>`;
+  return { user, url, headers, rules, loggedHeaders };
+}
 
+/** Sender ett kall, logger det (renset) og lagrer svaret for inspect_call. */
+async function send(input: HttpInput, prep: Prepared, session: Session): Promise<Sent> {
   const redact = (t: string) => session.redactor.redact(t);
-  const id = session.httpLog.length + 1;
+  const id = session.nextCallId();
   const started = Date.now();
   const log = (status: HttpLogEntry["status"], response: string, contentType?: string) =>
     session.httpLog.push({
       id,
-      user: user.alias,
-      auth: session.tokens.describe(user),
+      user: prep.user.alias,
+      auth: session.tokens.describe(prep.user),
       api: input.api,
       method: input.method,
       path: input.path,
-      url: url.href,
-      requestHeaders: loggedHeaders,
+      url: prep.url.href,
+      requestHeaders: prep.loggedHeaders,
       requestBody: input.body && redact(input.body),
       status,
       contentType,
@@ -128,46 +168,79 @@ async function sendRequest(input: HttpInput, session: Session): Promise<ToolOutp
       ms: Date.now() - started,
     });
 
-  let res: Response;
-  let text: string;
   try {
-    headers.set("authorization", `Bearer ${await session.tokens.tokenFor(user)}`);
-    for (const rule of rules) for (const [name, value] of Object.entries(rule.headers)) headers.set(name, value);
-    res = await session.fetch(url, {
+    const headers = new Headers(prep.headers);
+    headers.set("authorization", `Bearer ${await session.tokens.tokenFor(prep.user)}`);
+    for (const rule of prep.rules) for (const [name, value] of Object.entries(rule.headers)) headers.set(name, value);
+    const res = await session.fetch(prep.url, {
       method: input.method,
       headers,
       body: input.body,
       redirect: "manual",
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    text = await res.text();
+    const text = await res.text();
+    log(res.status, text, res.headers.get("content-type") ?? undefined);
+    session.responseBodies.set(id, text);
+    if (input.method === "POST" && res.ok) session.owned.rememberCreated(input.body, text, res.headers.get("location"));
+    return { id, ms: Date.now() - started, res, text };
   } catch (err) {
     log("feil", (err as Error).message);
-    return { content: redact(`Kall #${id}: nettverksfeil: ${(err as Error).message}`), isError: true };
+    return { id, ms: Date.now() - started, text: "", error: (err as Error).message };
   }
+}
 
-  log(res.status, text, res.headers.get("content-type") ?? undefined);
-  session.responseBodies.set(id, text);
-  if (input.method === "POST" && res.ok) session.owned.rememberCreated(input.body, text, res.headers.get("location"));
-
-  // Feilsvar vises alltid i sin helhet: stack traces og lekkasjer skal aldri filtreres bort.
-  const selected = input.fields?.length && res.status < 400 ? selectFields(text, input.fields) : undefined;
-  const note = input.fields?.length && selected === undefined ? "(fields ignorert: feilsvar eller ikke JSON)\n" : "";
+/** Svaret slik modellen ser det. Feilsvar vises alltid i sin helhet: stack traces og lekkasjer skal aldri filtreres bort. */
+function describe(sent: Sent, fields: string[] | undefined, maxChars = MAX_BODY_CHARS): string {
+  if (!sent.res) return `Kall #${sent.id}: nettverksfeil: ${sent.error}`;
+  const { res, text } = sent;
+  const selected = fields?.length && res.status < 400 ? selectFields(text, fields) : undefined;
+  const note = fields?.length && selected === undefined ? "(fields ignorert: feilsvar eller ikke JSON)\n" : "";
   const shownHeaders = SHOWN_HEADERS.map((h) => [h, res.headers.get(h)] as const)
     .filter(([, v]) => v)
     .map(([h, v]) => `${h}: ${v}`)
     .join("\n");
-
-  return {
-    content: redact(
-      `Kall #${id}: HTTP ${res.status} ${res.statusText} (${Date.now() - started} ms, ${text.length} tegn)\n` +
-        `${shownHeaders}\n\n${note}${selected ?? truncate(text)}`,
-    ),
-  };
+  const body = selected ?? (text.length > maxChars ? truncate(text, maxChars) : text);
+  return `Kall #${sent.id}: HTTP ${res.status} ${res.statusText} (${sent.ms} ms, ${text.length} tegn)\n${shownHeaders}\n\n${note}${body}`;
 }
 
-function truncate(text: string): string {
-  return text.length > MAX_BODY_CHARS
-    ? `${text.slice(0, MAX_BODY_CHARS)}\n... [avkortet, ${text.length} tegn totalt - bruk inspect_call/fields for resten]`
+async function sendRequest(input: HttpInput, session: Session): Promise<ToolOutput> {
+  const prep = prepare(input, session);
+  if (typeof prep === "string") return { content: prep, isError: true };
+  const sent = await send(input, prep, session);
+  return { content: session.redactor.redact(describe(sent, input.fields)), isError: sent.res ? undefined : true };
+}
+
+const BURST_BODY_CHARS = 1500;
+
+/** Samme forespørsel N ganger samtidig - for race conditions, samtidighet og idempotens. */
+async function sendBurst(input: HttpInput & { count: number }, session: Session): Promise<ToolOutput> {
+  const prep = prepare(input, session);
+  if (typeof prep === "string") return { content: prep, isError: true };
+  // Token hentes før kappløpet, så alle kallene starter så likt som mulig.
+  await session.tokens.tokenFor(prep.user);
+  const all = await Promise.all(Array.from({ length: input.count }, () => send(input, prep, session)));
+  const byStatus = new Map<string, number[]>();
+  for (const s of all) {
+    const key = s.res ? String(s.res.status) : "nettverksfeil";
+    byStatus.set(key, [...(byStatus.get(key) ?? []), s.id]);
+  }
+  const distinctBodies = new Set(all.map((s) => s.text)).size;
+  const summary =
+    `${input.count} samtidige kall: ` +
+    [...byStatus]
+      .map(([status, ids]) => `${status} ×${ids.length} (${ids.map((i) => `#${i}`).join(", ")})`)
+      .join(", ") +
+    ` · ${distinctBodies} ulike svar`;
+  const details = all
+    .sort((a, b) => a.id - b.id)
+    .map((s) => describe(s, input.fields, BURST_BODY_CHARS))
+    .join("\n\n---\n\n");
+  return { content: session.redactor.redact(`${summary}\n\n${details}`) };
+}
+
+function truncate(text: string, maxChars = MAX_BODY_CHARS): string {
+  return text.length > maxChars
+    ? `${text.slice(0, maxChars)}\n... [avkortet, ${text.length} tegn totalt - bruk inspect_call/fields for resten]`
     : text;
 }

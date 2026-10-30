@@ -130,3 +130,51 @@ describe("record_check og report_finding", () => {
     assert.equal(session.checks.length, 1);
   });
 });
+
+describe("http_burst", () => {
+  it("sender samme forespørsel samtidig, med unike kall-ID-er og statusfordeling", async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    let created = 0;
+    const { session, sent } = testSession(async () => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setTimeout(r, 10));
+      inFlight--;
+      return created++ === 0 ? json({ id: "snoken-ny" }, 201) : json({ title: "Conflict" }, 409);
+    });
+    const tools = createTools(session);
+    await runTool(
+      tools,
+      "use_service_owner",
+      { owner: "ttd", scopes: ["altinn:resourceregistry/resource.write"] },
+      session,
+    );
+    const out = await runTool(
+      tools,
+      "http_burst",
+      { method: "POST", path: "/x", body: "{}", count: 4, why: "race" },
+      session,
+    );
+    assert.equal(sent.length, 4);
+    assert.ok(maxInFlight > 1, "kallene skal gå samtidig");
+    assert.match(out.content, /4 samtidige kall: .*201 ×1.*409 ×3/);
+    assert.deepEqual(session.httpLog.map((e) => e.id).sort(), [1, 2, 3, 4]);
+  });
+
+  it("avviser count utenfor 2-10 og følger de samme sperrene som http_request", async () => {
+    const { session, sent } = testSession();
+    const tools = createTools(session);
+    await runTool(
+      tools,
+      "use_service_owner",
+      { owner: "ttd", scopes: ["altinn:resourceregistry/resource.write"] },
+      session,
+    );
+    const tooMany = await runTool(tools, "http_burst", { method: "GET", path: "/x", count: 50, why: "x" }, session);
+    assert.equal(tooMany.isError, true);
+    const put = await runTool(tools, "http_burst", { method: "PUT", path: "/ikke-min", count: 2, why: "x" }, session);
+    assert.match(put.content, /bare lov mot testdata/);
+    assert.equal(sent.length, 0);
+  });
+});

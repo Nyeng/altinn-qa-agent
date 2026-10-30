@@ -49,6 +49,8 @@ export class PvtKnowledge {
       return `Ingen PVT-klient matcher "${query}". Produkter: ${products}`;
     }
     const summaries = await Promise.all(matches.slice(0, MAX_CLIENTS_SUMMARIZED).map((a) => this.summary(a)));
+    // Oppslag på policy gir også modellen for å lage en policy, ikke bare endepunktene.
+    if (words.some((w) => /^(policy|policyer|xacml)$/.test(w))) summaries.push(await this.policyModel());
     const rest = matches.slice(MAX_CLIENTS_SUMMARIZED, MAX_MATCHES_LISTED);
     return [
       ...summaries,
@@ -57,6 +59,31 @@ export class PvtKnowledge {
     ]
       .filter(Boolean)
       .join("\n\n");
+  }
+
+  /**
+   * Policy-modellen K6 bruker for nye testressurser: XacmlPolicyBuilder (bygger XACML med roller, tilgangspakker og
+   * actions) og hvordan K6-testen kaller den. En ny ressurs uten policy gir Indeterminate fra PDP.
+   */
+  async policyModel(): Promise<string> {
+    const builders = await this.get(`${RAW}/K6/clients/resource-registry/resource.builders.js`);
+    const start = builders.indexOf("class XacmlPolicyBuilder");
+    const next = builders.slice(start + 1).search(/\n(class |export )/);
+    const builder =
+      start < 0 ? "(fant ikke XacmlPolicyBuilder)" : builders.slice(start, next < 0 ? undefined : start + 1 + next);
+    const test = await this.get(`${RAW}/K6/api/tests/resource-registry/create-resource-and-policy.js`);
+    const use = test.indexOf("new XacmlPolicyBuilder");
+    const usage = use < 0 ? "" : test.slice(use, test.indexOf(".build()", use) + ".build()".length);
+    return [
+      "Policy-modell for nye testressurser (fra K6/clients/resource-registry/resource.builders.js):",
+      "```js",
+      builder.slice(0, 7000),
+      "```",
+      usage &&
+        `Slik bruker K6 den (create-resource-and-policy.js), før ResourceCreatePolicy laster opp filen:\n\`\`\`js\n${usage}\n\`\`\``,
+    ]
+      .filter(Boolean)
+      .join("\n");
   }
 
   /** Scopes fra PVT som kan brukes i tjenesteeier-tokens (uten admin, deploy og varselutsending). */
