@@ -55,8 +55,10 @@ const SKIP_PRS = new Set(
 );
 // Store endringer får større budsjett. Måles på kjørende kode, ikke tester.
 const LARGE_PR = { runtimeFiles: 8, runtimeLines: 300 };
-const STEPS_NORMAL = 25;
-const STEPS_LARGE = 40;
+const STEPS_NORMAL = 30;
+const STEPS_LARGE = 60;
+// Endringer der testen typisk må bygge opp tilstand selv (ressurs, policy, tilgangsliste, PDP-kall).
+const SETUP_HEAVY = /^src\/apps\/(Altinn\.Authorization\/src\/|Altinn\.ResourceRegistry\/src\/.*(AccessList|Policy))/;
 
 // Mappe i altinn-auth → navn på deployment-miljøet i GitHub (<app>/<miljø>).
 const APPS = {
@@ -137,7 +139,10 @@ function registerAutoPullRequests(since) {
       .find(Boolean);
     const runtime = pr.files.filter((f) => isRuntimeCode(f.path));
     const runtimeLines = runtime.reduce((sum, f) => sum + (f.additions ?? 0) + (f.deletions ?? 0), 0);
-    const large = runtime.length >= LARGE_PR.runtimeFiles || runtimeLines >= LARGE_PR.runtimeLines;
+    const large =
+      runtime.length >= LARGE_PR.runtimeFiles ||
+      runtimeLines >= LARGE_PR.runtimeLines ||
+      runtime.some((f) => SETUP_HEAVY.test(f.path));
     const req = {
       auto: true,
       isPr: true,

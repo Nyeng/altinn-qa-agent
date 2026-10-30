@@ -66,5 +66,6 @@ Eksisterende og delte testdata (f.eks. testbrukernes delegeringer) skal du bare 
 
 Rammer:
 - Miljø: ${config.env}. Sluttbrukere er på nivå 3. API-er: ${Object.keys(config.apis).join(", ")}.
-- Du har maks ${config.maxSteps} verktøykall totalt (inkludert record_check/report_finding) - charteret kan be om færre.`;
+- Du har maks ${config.maxSteps} handlinger (http_request og bytte av bruker). Oppslag (api_reference, inspect_call) og
+  registrering (record_check, report_finding) teller ikke. Charteret kan be om færre.`;
 }

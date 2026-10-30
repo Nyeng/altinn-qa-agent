@@ -79,8 +79,9 @@ export function loadConfig(argv: string[] = process.argv, env: NodeJS.ProcessEnv
     model: env.QA_MODEL || "claude-sonnet-5-5",
     effort: parseEffort(env.QA_EFFORT),
     // Per kjøring (QA_MAX_STEPS i miljøet) > miljøkonfigen > 25
-    maxSteps: Number(env.QA_MAX_STEPS || file.QA_MAX_STEPS || 25),
-    maxSessionTokens: Number(env.QA_MAX_SESSION_TOKENS || 400_000),
+    maxSteps: Number(env.QA_MAX_STEPS || file.QA_MAX_STEPS || 30),
+    // Tokentaket følger stegbudsjettet (15 000 per steg, minst 400 000) - den egentlige kostnadsgrensen.
+    maxSessionTokens: Number(env.QA_MAX_SESSION_TOKENS || 0) || tokenCap(env, file),
     env: envName,
     allowDelete: String(file.QA_ALLOW_DELETE) === "true",
     apis,
@@ -98,6 +99,11 @@ export function loadConfig(argv: string[] = process.argv, env: NodeJS.ProcessEnv
       "https://raw.githubusercontent.com/Altinn/altinn-platform-validation-tests/refs/heads/main",
     secrets: [...secretValues(file), env.TOKEN_GENERATOR_PASSWORD].filter((v): v is string => Boolean(v)),
   };
+}
+
+function tokenCap(env: NodeJS.ProcessEnv, file: EnvFile): number {
+  const steps = Number(env.QA_MAX_STEPS || file.QA_MAX_STEPS || 30);
+  return Math.max(400_000, steps * 15_000);
 }
 
 // Miljø velges med --env=at22 på kommandolinjen, ellers QA_ENV.

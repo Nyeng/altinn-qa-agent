@@ -5,6 +5,7 @@ import { defineTool } from "./define.js";
 
 export const apiReference = defineTool({
   name: "api_reference",
+  countsAsStep: false,
   description:
     "Slå opp hvordan et Altinn-API brukes: metoder, HTTP-metode og sti, parametre og hvilket token som kreves. " +
     "Kilden er K6-klientene i altinn-platform-validation-tests, som dekker alle produktene (access-management, " +

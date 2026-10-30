@@ -50,6 +50,7 @@ export function createHttpTools(config: Config): Tool[] {
 
   const inspectCall = defineTool({
     name: "inspect_call",
+    countsAsStep: false,
     description:
       "Hent deler av svaret fra et kall du allerede har gjort (Kall #N), uten å sende forespørselen på nytt. " +
       "`fields` har samme syntaks som i http_request. Utelat fields for å se de første 8000 tegnene.",

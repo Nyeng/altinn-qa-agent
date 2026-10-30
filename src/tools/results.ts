@@ -9,6 +9,7 @@ const missingCalls = (calls: number[], s: Session) => calls.filter((id) => !s.ha
 
 export const recordCheck = defineTool({
   name: "record_check",
+  countsAsStep: false,
   description:
     "Registrer resultatet for ett akseptansekriterium. `criterion`: én kort linje i klarspråk om funksjonaliteten. " +
     "`coverage`: hvordan kallene traff den ENDREDE kodestien (f.eks. 'limit=2 ga 4 sider, siste side full'). " +
@@ -39,6 +40,7 @@ export const recordCheck = defineTool({
 
 export const reportFinding = defineTool({
   name: "report_finding",
+  countsAsStep: false,
   description:
     "Rapporter et reelt avvik som en utvikler skal kunne reprodusere. Kun faktiske feil med bevis - ikke " +
     "kosmetikk, stil eller spekulasjon. `title`: kort. `expected`/`actual`: korte fraser (f.eks. '201', '500 FormatException'). " +

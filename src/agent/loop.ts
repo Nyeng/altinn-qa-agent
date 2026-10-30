@@ -100,7 +100,9 @@ export async function runAgent(opts: {
     const results: Anthropic.Beta.BetaContentBlockParam[] = [];
     for (const block of response.content) {
       if (block.type !== "tool_use") continue;
-      steps++;
+      // Bare handlinger teller som steg - oppslag (api_reference, inspect_call) og registrering
+      // (record_check, report_finding) skal ikke spise av budsjettet for selve testingen.
+      if (tools.find((t) => t.name === block.name)?.countsAsStep !== false) steps++;
       const out = await runTool(tools, block.name, block.input, session);
       onEvent({ type: "tool", label: out.label, isError: Boolean(out.isError) });
       results.push({ type: "tool_result", tool_use_id: block.id, content: out.content, is_error: out.isError });

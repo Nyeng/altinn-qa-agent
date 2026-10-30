@@ -15,6 +15,8 @@ export type Tool<S extends z.ZodType = z.ZodType> = {
   input: S;
   /** strict: true gir skjemagaranti fra API-et. Skjemaet må da være enkelt (ingen min/max o.l.). */
   strict?: boolean;
+  /** false = teller ikke mot stegbudsjettet (oppslag og registrering, ikke handlinger mot API-ene). */
+  countsAsStep?: boolean;
   run(input: z.infer<S>, session: Session): ToolOutput | Promise<ToolOutput>;
   /** Kort linje til terminal/logg. */
   label?(input: z.infer<S>): string;

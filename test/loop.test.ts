@@ -64,7 +64,7 @@ describe("agentløkka", () => {
       ],
     );
     assert.equal(result.summary, "Ferdig.");
-    assert.equal(result.steps, 2);
+    assert.equal(result.steps, 1); // switch_user teller, record_check (registrering) gjør ikke
     assert.equal(result.checks.length, 1);
     assert.equal(result.usage.input, 200);
     assert.equal(result.usage.cacheRead, 100);
