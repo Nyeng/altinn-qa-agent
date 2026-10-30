@@ -14,6 +14,22 @@
         "--codegen",
         "typescript"
       ]
+    },
+    "playwright-headless": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--headless",
+        "--isolated",
+        "--output-dir",
+        "reports/gui",
+        "--allowed-origins",
+        "https://at22.altinn.cloud;https://am.ui.at22.altinn.cloud;https://platform.at22.altinn.cloud;https://info.at22.altinn.cloud;https://af.at22.altinn.cloud;https://authn.ui.at22.altinn.cloud;https://at23.altinn.cloud;https://am.ui.at23.altinn.cloud;https://platform.at23.altinn.cloud;https://info.at23.altinn.cloud;https://af.at23.altinn.cloud;https://authn.ui.at23.altinn.cloud;https://tt02.altinn.no;https://am.ui.tt02.altinn.no;https://platform.tt02.altinn.no;https://info.tt02.altinn.no;https://af.tt02.altinn.no;https://authn.ui.tt02.altinn.no;https://altinncdn.no;https://login.test.idporten.no;https://testid.test.idporten.no",
+        "--blocked-origins",
+        "https://altinn.no;https://www.altinn.no;https://am.ui.altinn.no;https://platform.altinn.no;https://af.altinn.no;https://info.altinn.no;https://authn.ui.altinn.no;https://login.idporten.no;https://idporten.no",
+        "--codegen",
+        "typescript"
+      ]
     }
   }
 }

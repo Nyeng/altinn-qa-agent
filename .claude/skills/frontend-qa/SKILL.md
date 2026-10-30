@@ -23,8 +23,9 @@ Arbeidsmappe: repoet `altinn-qa-agent` (der denne skillen ligger). Kjør alle ko
    - **Ikke post rapporten noe sted.** Skriv den til `reports/gui/<key>.md` (key fra kandidatlisten,
      f.eks. `reports/gui/amf-2581-at23.md`). Filen er også det som markerer PR-en som testet.
    - Hold deg til ~25 nettleserhandlinger per kandidat.
-3. **Nettleser:** bruk Playwright MCP fra `.mcp.json` (tillatt-liste for testmiljøene, prod blokkert). Er det
-   ikke tilgjengelig, bruk appens innebygde nettleser med nøyaktig de samme reglene - aldri prod.
+3. **Nettleser:** bruk **`playwright-headless`** fra `.mcp.json` (skjult nettleser, så det virker på låst
+   skjerm; tillatt-liste for testmiljøene, prod blokkert). Er den ikke tilgjengelig, bruk `playwright`, og
+   deretter appens innebygde nettleser - med nøyaktig de samme reglene. Aldri prod.
 4. **Til slutt:** skriv en kort oppsummering: hvilke PR-er som ble testet, og antall ✅ / ❌ / ⚪ og funn per PR,
    med sti til rapportfilene. Ingenting annet.
 
