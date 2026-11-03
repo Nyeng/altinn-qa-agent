@@ -13,7 +13,10 @@ Arbeidsmappe: repoet `altinn-qa-agent` (der denne skillen ligger). Kjør alle ko
 ## Fremgangsmåte
 
 1. **Finn kandidater:** `node scripts/amf-candidates.mjs at23 2`
-   Gir maks 2 PR-er som er merget, synlige i UI, deployet til AT23 og ikke testet før.
+   Gir maks 2 kandidater som ikke er testet før: PR-er i frontend-repoet (`kind: "PR"`) som er merget, synlige i
+   UI og deployet til AT23, og lukkede frontend-Features i altinn-auth (`kind: "Feature"`). For en Feature: test
+   akseptansekriteriene i Featuren og sub-issuene som helhet. Deploy kan ikke bekreftes - mangler noe i UI,
+   registrer det som ⚪ med «ikke deployet?», ikke som funn.
    Tom liste → skriv «Ingen nye frontend-endringer å teste.» og avslutt. Ikke gjør noe mer.
 2. **For hver kandidat:** følg arbeidsmåten og reglene i `.claude/skills/son-of-vegard-gui/SKILL.md` (les den),
    med disse unntakene fordi ingen er til stede:

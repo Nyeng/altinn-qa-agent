@@ -1,19 +1,22 @@
-// Frontend-QA: finner PR-er i altinn-access-management-frontend som er klare for GUI-test.
+// Frontend-QA: finner PR-er i altinn-access-management-frontend og frontend-Features i altinn-auth som er klare for GUI-test.
 //   - merget de siste LOOKBACK_DAYS dagene
 //   - synlig ny funksjonalitet (ikke avhengigheter, refaktorering, tester, CI, Storybook)
 //   - deployet til miljøet (vellykket kjøring av deploy-workflowen, ikke deployment-poster)
 //   - ikke allerede testet (rapport finnes i reports/gui/<nøkkel>.md)
+//   Features: lukket de siste LOOKBACK_DAYS dagene, merket Frontend/area/access-management-frontend, alle sub-issues
+//   lukket. API-agenten hopper over disse - de testes her.
 // Skriver JSON-liste til stdout. Leser bare fra GitHub (gh), skriver ingenting dit.
 //
 //   node scripts/amf-candidates.mjs [at23] [maks]
 import { existsSync } from "node:fs";
-import { ghJson } from "./altinn.mjs";
+import { completedFeaturesSince, ghJson } from "./altinn.mjs";
 
 const REPO = "Altinn/altinn-access-management-frontend";
 const REPORT_DIR = "reports/gui";
 const env = (process.argv[2] ?? "at23").toLowerCase();
 const max = Number(process.argv[3] ?? 2);
 const LOOKBACK_DAYS = Number(process.env.LOOKBACK_DAYS ?? 7);
+const FRONTEND_LABELS = ["Frontend", "area/access-management-frontend"];
 
 // Kode som endrer det brukeren ser eller gjør.
 const UI_CODE =
@@ -82,7 +85,17 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     if (!isUiFeature(pr)) continue;
     const key = `amf-${pr.number}-${env}`;
     if (alreadyTested(key) || !isDeployed(pr.mergeCommit.oid)) continue;
-    candidates.push({ key, number: pr.number, title: pr.title, url: pr.url, env, mergedAt: pr.mergedAt });
+    candidates.push({ kind: "PR", key, number: pr.number, title: pr.title, url: pr.url, env, mergedAt: pr.mergedAt });
+  }
+
+  // Lukket Feature = ferdig levert. Sub-issuene har ofte ingen lenket PR, så deploy kan ikke sjekkes herfra.
+  for (const f of completedFeaturesSince(since)) {
+    if (candidates.length >= max) break;
+    if (f.state !== "CLOSED" || Date.parse(f.closedAt) < Date.parse(since)) continue;
+    if (!f.labels.some((l) => FRONTEND_LABELS.includes(l))) continue;
+    const key = `feature-${f.number}-${env}`;
+    if (alreadyTested(key)) continue;
+    candidates.push({ kind: "Feature", key, number: f.number, title: f.title, url: f.url, env, closedAt: f.closedAt });
   }
   console.log(JSON.stringify(candidates, null, 2));
 }

@@ -108,6 +108,8 @@ export function completedFeaturesSince(since) {
       title: i.title,
       url: i.html_url,
       state: i.state.toUpperCase(),
+      closedAt: i.closed_at,
+      labels: i.labels.map((l) => l.name),
       body: i.body ?? "",
       subIssuesSummary: { total: i.sub_issues_summary.total, completed: i.sub_issues_summary.completed },
     }));
