@@ -7,6 +7,14 @@ import type { HttpLogEntry } from "../agent/session.js";
 
 const ICON = { bestått: "✅", feilet: "❌", "ikke testet": "⚪" } as const;
 
+/** Statuslinjen i issueteksten: skiller helt testet fra delvis og ikke testet. */
+export function runStatus(checks: AgentResult["checks"]): string {
+  const untested = checks.filter((c) => c.result === "ikke testet").length;
+  if (checks.length === 0 || untested === checks.length) return "⚪ Ikke testet";
+  if (untested > 0) return `🟡 Delvis testet (${checks.length - untested} av ${checks.length} krav)`;
+  return "✅ Testet";
+}
+
 export function renderReport(
   result: AgentResult,
   meta: { env: string; model: string; title?: string; runUrl?: string },

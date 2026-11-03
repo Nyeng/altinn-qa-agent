@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { AgentResult } from "../src/agent/loop.js";
-import { renderReport } from "../src/report/render.js";
+import { renderReport, runStatus } from "../src/report/render.js";
 
 const result = {
   checks: [
@@ -61,5 +61,23 @@ describe("rapport", () => {
     assert.match(md, /🐞 \*\*500 ved mellomrom\*\*/);
     assert.match(md, /curl -i -X POST 'https:\/\/platform\.at22\.altinn\.cloud\/r'/);
     assert.match(md, /claude-sonnet-5-5 · 1 kall · \$0\.07 · \[logg\]\(https:\/\/run\)/);
+  });
+});
+
+describe("statuslinje", () => {
+  const check = (result: "bestått" | "feilet" | "ikke testet") => ({
+    criterion: "k",
+    coverage: "",
+    source: "utledet",
+    result,
+    expected: "",
+    actual: "",
+    calls: [] as number[],
+  });
+  it("skiller testet, delvis testet og ikke testet", () => {
+    assert.equal(runStatus([check("bestått"), check("feilet")]), "✅ Testet");
+    assert.equal(runStatus([check("bestått"), check("ikke testet")]), "🟡 Delvis testet (1 av 2 krav)");
+    assert.equal(runStatus([check("ikke testet")]), "⚪ Ikke testet");
+    assert.equal(runStatus([]), "⚪ Ikke testet");
   });
 });

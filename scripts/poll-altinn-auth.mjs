@@ -328,13 +328,27 @@ function featureReadiness(req) {
   const done = f.subIssues.filter((s) => s.state === "CLOSED" && s.stateReason !== "NOT_PLANNED");
   if (f.subIssues.some((s) => s.state === "OPEN")) return { waiting: "Featuren har fortsatt åpne sub-issues." };
   const prs = done.filter((s) => s.pr).map((s) => s.pr);
+  const external = done.filter((s) => s.externalPr).map((s) => s.externalPr);
+  // Leverer Featuren bare tester, CI eller dokumentasjon, er det ingen ny API-oppførsel å teste.
+  if (prs.length && !external.length && !req.force) {
+    const categories = prs.map((pr) => {
+      const p = ghJson(["pr", "view", String(pr), "-R", SOURCE_REPO, "--json", "title,files"]);
+      return classify({ title: p.title, files: p.files.map((f) => f.path) }).category;
+    });
+    if (!categories.some((c) => CATEGORIES[c].run)) {
+      return {
+        done:
+          `Kjøres ikke: ingen av PR-ene (${prs.map((p) => `#${p}`).join(", ")}) endrer API-oppførsel ` +
+          `(${[...new Set(categories.map((c) => CATEGORIES[c].name))].join(", ")}).`,
+      };
+    }
+  }
   const pending = [];
   for (const pr of prs) {
     const r = readiness({ isPr: true, number: String(pr), env: req.env, force: true });
     if (r.waiting) pending.push(`#${pr}`);
   }
   if (pending.length) return { waiting: `Venter på deploy av ${pending.join(", ")}.` };
-  const external = done.filter((s) => s.externalPr).map((s) => s.externalPr);
   const withoutPr = done.filter((s) => !s.pr && !s.externalPr).map((s) => `#${s.number}`);
   const note = [
     prs.length ? `${prs.length} PR-er deployet` : "ingen PR-er i altinn-auth",

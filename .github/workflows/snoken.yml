@@ -108,7 +108,7 @@ jobs:
           cat comment.md >> "$GITHUB_STEP_SUMMARY"
           # Én rapportkommentar per issue (oppdateres ved ny kjøring) + statuslinje i issueteksten
           node scripts/publish.mjs report "$NUMBER" comment.md
-          node scripts/publish.mjs status "$NUMBER" "✅ Testet $(date -u +%Y-%m-%d) i ${{ steps.charter.outputs.env }}"
+          node scripts/publish.mjs status "$NUMBER" "$(cat reports/status.txt) $(date -u +%Y-%m-%d) i ${{ steps.charter.outputs.env }}"
 
       - name: Si fra om feil
         if: failure()
