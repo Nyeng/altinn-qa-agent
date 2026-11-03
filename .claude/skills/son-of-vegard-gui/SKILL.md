@@ -73,5 +73,5 @@ Argumenter: en PR- eller Feature-lenke (altinn-access-management-frontend eller 
 
 - ✅ krever at du faktisk utførte flyten som traff den nye koden. Ellers ⚪.
 - Ingen oppsummering, notater eller forslag utover dette.
-- Spør til slutt om rapporten skal postes som issue i `Nyeng/altinn-qa-agent`
+- Spør til slutt om rapporten skal postes som issue i `Nyeng/altinn-qa-agent` (skriv den til `reports/gui/<key>.md`, skjermbilder som `<key>-<navn>.png`, og kjør `node scripts/publish-gui.mjs <key>`)
   (`gh issue create -R Nyeng/altinn-qa-agent --label snoken --title "🕵️ GUI · <repo>#<nr> · <miljø>" --body-file …`).

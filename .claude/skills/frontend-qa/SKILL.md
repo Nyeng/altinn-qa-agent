@@ -5,8 +5,8 @@ description: Planlagt, uovervåket frontend-QA - finner nye, deployede UI-endrin
 
 # Frontend-QA (lokalt, uovervåket)
 
-Kjøres lokalt på brukerens Mac og abonnement. Bruker ingen tokens via GitHub og skriver ingenting til GitHub
-(ingen issues, kommentarer eller PR-er) - GitHub leses bare med `gh`.
+Kjøres lokalt på brukerens Mac og abonnement - bruker ingen tokens via GitHub Actions. Det eneste som skrives til
+GitHub er rapporten, som issue i `Nyeng/altinn-qa-agent` via `scripts/publish-gui.mjs` (aldri i Altinn-repoene).
 
 Arbeidsmappe: repoet `altinn-qa-agent` (der denne skillen ligger). Kjør alle kommandoer derfra.
 
@@ -23,14 +23,18 @@ Arbeidsmappe: repoet `altinn-qa-agent` (der denne skillen ligger). Kjør alle ko
    - **Aldri vent på svar eller spør brukeren.** Er noe uklart, gjør det tryggeste valget og noter det i rapporten.
    - **Stopp kandidaten (ikke hele kjøringen)** hvis innloggingen blokkeres, siden ikke laster, eller du havner
      på en prod-adresse. Skriv da en rapport med ⚪ og årsaken.
-   - **Ikke post rapporten noe sted.** Skriv den til `reports/gui/<key>.md` (key fra kandidatlisten,
-     f.eks. `reports/gui/amf-2581-at23.md`). Filen er også det som markerer PR-en som testet.
+   - **Rapport:** skriv den til `reports/gui/<key>.md` (key fra kandidatlisten, f.eks.
+     `reports/gui/amf-2581-at23.md`). Filen er også det som markerer kandidaten som testet. Skjermbilder lagres som
+     `reports/gui/<key>-<navn>.png` og refereres med den stien i rapporten.
+   - **Publiser:** `node scripts/publish-gui.mjs <key>`. Lager eller oppdaterer issuen (statuslinje + én
+     rapportkommentar) og laster opp skjermbildene. Feiler publiseringen, noter det i oppsummeringen - ikke prøv
+     andre veier.
    - Hold deg til ~25 nettleserhandlinger per kandidat.
 3. **Nettleser:** bruk **`playwright-headless`** fra `.mcp.json` (skjult nettleser, så det virker på låst
    skjerm; tillatt-liste for testmiljøene, prod blokkert). Er den ikke tilgjengelig, bruk `playwright`, og
    deretter appens innebygde nettleser - med nøyaktig de samme reglene. Aldri prod.
 4. **Til slutt:** skriv en kort oppsummering: hvilke PR-er som ble testet, og antall ✅ / ❌ / ⚪ og funn per PR,
-   med sti til rapportfilene. Ingenting annet.
+   med lenke til issuene. Ingenting annet.
 
 ## Rapportformat (per PR, i filen)
 
