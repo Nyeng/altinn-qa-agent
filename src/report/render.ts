@@ -1,5 +1,6 @@
 import type { AgentResult } from "../agent/loop.js";
 import type { HttpLogEntry } from "../agent/session.js";
+import type { TestUser } from "../altinn/test-users.js";
 
 // Rapporten er bevisst kort: en punktliste over hva som er verifisert (mot akseptansekriterier der de finnes)
 // og eventuelle funn. Reproduksjon (curl + svar) ligger sammenfoldet under hvert funn.
@@ -17,7 +18,7 @@ export function runStatus(checks: AgentResult["checks"]): string {
 
 export function renderReport(
   result: AgentResult,
-  meta: { env: string; model: string; title?: string; runUrl?: string },
+  meta: { env: string; model: string; title?: string; runUrl?: string; testUsers?: TestUser[] },
 ): string {
   const byId = new Map(result.httpLog.map((e) => [e.id, e]));
 
@@ -44,9 +45,16 @@ export function renderReport(
       })
     : ["- Ingen"];
 
+  // Fødselsnummer settes inn her, etter kjøringen - modellen ser det aldri. Med pid kan man logge inn med TestID
+  // direkte, uten å slå opp brukeren i registeret. Bare syntetiske brukere fra testdatakatalogen.
+  const testdata = (meta.testUsers ?? [])
+    .filter((u) => u.pid && u.fromCatalog)
+    .map((u) => `${u.alias} (${u.category}): pid ${u.pid}${u.userId ? ` · userId ${u.userId}` : ""}`);
+
   return [
     `### 🕵️ ${meta.title ?? "Son of Vegard"} · ${meta.env}`,
     "",
+    ...(testdata.length ? [`**Testdata:** ${testdata.join("; ")}`, ""] : []),
     "**Verifisert**",
     ...verified,
     "",

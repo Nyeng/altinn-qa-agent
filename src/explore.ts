@@ -39,7 +39,13 @@ const result = await runAgent({
 // Overskrift (f.eks. "PR #4613") skrives av charter-skriptet i CI, hvis den finnes.
 const titleFile = path.join(path.dirname(charterPath), "title.txt");
 const title = existsSync(titleFile) ? (await readFile(titleFile, "utf8")).trim() || undefined : undefined;
-const report = renderReport(result, { env: config.env, model: config.model, title, runUrl: process.env.QA_RUN_URL });
+const report = renderReport(result, {
+  env: config.env,
+  model: config.model,
+  title,
+  runUrl: process.env.QA_RUN_URL,
+  testUsers: session.users.all(),
+});
 
 await mkdir("reports", { recursive: true });
 const name = `${started.toISOString().slice(0, 16).replace(/[:T]/g, "-")}-${config.env}-${path.basename(charterPath, ".md")}.md`;

@@ -10,7 +10,9 @@ export type TestUser = {
   category: string;
   /** Tjenesteeier: virksomhetstoken (GetEnterpriseToken) i stedet for sluttbrukertoken. */
   enterprise?: { org: string; orgNo: string; scopes: string };
-  pid?: string; // hemmelig - kun til tokenhenting
+  pid?: string; // skjult for modellen - kun til tokenhenting og i rapportens testdatalinje
+  /** Syntetisk bruker fra testdatakatalogen (ikke egen miljøkonfig eller tjenesteeier). */
+  fromCatalog?: boolean;
   userId?: string;
   partyId?: string;
   partyUuid?: string;
@@ -106,6 +108,7 @@ export class TestUserPool {
           userId: col(row, category.userId),
           partyId: col(row, category.partyId),
           partyUuid: col(row, category.partyUuid),
+          fromCatalog: true,
           context,
         });
       }

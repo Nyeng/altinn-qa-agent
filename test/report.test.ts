@@ -62,6 +62,27 @@ describe("rapport", () => {
     assert.match(md, /curl -i -X POST 'https:\/\/platform\.at22\.altinn\.cloud\/r'/);
     assert.match(md, /claude-sonnet-5-5 · 1 kall · \$0\.07 · \[logg\]\(https:\/\/run\)/);
   });
+
+  it("viser pid for katalogbrukere, ikke for egen konfig eller tjenesteeier", () => {
+    const md = renderReport(result, {
+      env: "at23",
+      model: "m",
+      testUsers: [
+        {
+          alias: "bruker-A",
+          category: "tilgangspakker-person",
+          pid: "01017012345",
+          userId: "201",
+          fromCatalog: true,
+          context: {},
+        },
+        { alias: "bruker-B", category: "egen (miljøkonfig)", pid: "02027012345", context: {} },
+        { alias: "bruker-C", category: "tjenesteeier ttd", context: {} },
+      ],
+    });
+    assert.match(md, /\*\*Testdata:\*\* bruker-A \(tilgangspakker-person\): pid 01017012345 · userId 201\n/);
+    assert.doesNotMatch(md, /02027012345|bruker-C/);
+  });
 });
 
 describe("statuslinje", () => {
