@@ -18,6 +18,10 @@ Arbeidsmappe: repoet `altinn-qa-agent` (der denne skillen ligger). Kjør alle ko
    akseptansekriteriene i Featuren og sub-issuene som helhet. Deploy kan ikke bekreftes - mangler noe i UI,
    registrer det som ⚪ med «ikke deployet?», ikke som funn.
    Tom liste → skriv «Ingen nye frontend-endringer å teste.» og avslutt. Ikke gjør noe mer.
+   **`retest: true`** betyr at kandidaten er testet før og står i `reports/gui/retest.txt`. Les den eksisterende
+   rapporten og test **bare ⚪-kravene** på nytt. Behold ✅/❌-linjene og funnene som de er, erstatt ⚪-linjene med
+   de nye resultatene, legg til eventuelle nye funn, og skriv rapporten tilbake til samme fil. Etter publisering:
+   fjern nøkkelen fra `reports/gui/retest.txt`.
 2. **For hver kandidat:** følg arbeidsmåten og reglene i `.claude/skills/son-of-vegard-gui/SKILL.md` (les den),
    med disse unntakene fordi ingen er til stede:
    - **Aldri vent på svar eller spør brukeren.** Er noe uklart, gjør det tryggeste valget og noter det i rapporten.

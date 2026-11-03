@@ -3,12 +3,14 @@
 //   - synlig ny funksjonalitet (ikke avhengigheter, refaktorering, tester, CI, Storybook)
 //   - deployet til miljøet (vellykket kjøring av deploy-workflowen, ikke deployment-poster)
 //   - ikke allerede testet (rapport finnes i reports/gui/<nøkkel>.md)
+//   Først kommer nøkler fra reports/gui/retest.txt (én per linje, # er kommentar): allerede testede kandidater der
+//   ⚪-kravene skal testes på nytt (`retest: true`).
 //   Features: lukket de siste LOOKBACK_DAYS dagene, merket Frontend/area/access-management-frontend, alle sub-issues
 //   lukket. API-agenten hopper over disse - de testes her.
 // Skriver JSON-liste til stdout. Leser bare fra GitHub (gh), skriver ingenting dit.
 //
 //   node scripts/amf-candidates.mjs [at23] [maks]
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { completedFeaturesSince, ghJson } from "./altinn.mjs";
 
 const REPO = "Altinn/altinn-access-management-frontend";
@@ -61,6 +63,25 @@ function alreadyTested(key) {
   return existsSync(`${REPORT_DIR}/${key}.md`);
 }
 
+const RETEST_FILE = `${REPORT_DIR}/retest.txt`;
+const KEY_RE = /^(amf|feature)-(\d+)-(at22|at23|tt02)$/;
+
+export function retestKeys(text, env) {
+  return text
+    .split("\n")
+    .map((l) => l.replace(/#.*/, "").trim())
+    .filter((k) => KEY_RE.test(k) && k.endsWith(`-${env}`));
+}
+
+function retestCandidate(key) {
+  const [, kind, number] = key.match(KEY_RE);
+  const src =
+    kind === "amf"
+      ? ghJson(["pr", "view", number, "-R", REPO, "--json", "title,url"])
+      : ghJson(["issue", "view", number, "-R", "Altinn/altinn-auth", "--json", "title,url"]);
+  return { kind: kind === "amf" ? "PR" : "Feature", key, number: Number(number), ...src, env, retest: true };
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const since = new Date(Date.now() - LOOKBACK_DAYS * 86_400_000).toISOString().slice(0, 10);
   const prs =
@@ -80,6 +101,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     ]) ?? [];
 
   const candidates = [];
+  const retest = existsSync(RETEST_FILE) ? retestKeys(readFileSync(RETEST_FILE, "utf8"), env) : [];
+  for (const key of retest) {
+    if (candidates.length >= max) break;
+    if (alreadyTested(key)) candidates.push(retestCandidate(key));
+  }
   for (const pr of prs.sort((a, b) => a.mergedAt.localeCompare(b.mergedAt))) {
     if (candidates.length >= max) break;
     if (!isUiFeature(pr)) continue;
