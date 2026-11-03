@@ -48,7 +48,7 @@ export function featureOf(issue) {
 export function featureDetails(feature) {
   const issue = graphql(
     "query($o:String!,$n:String!,$i:Int!){repository(owner:$o,name:$n){issue(number:$i){" +
-      "number title body url state subIssuesSummary{total completed} " +
+      "number title body url state labels(first:20){nodes{name}} subIssuesSummary{total completed} " +
       "subIssues(first:50){nodes{number title state stateReason " +
       "timelineItems(itemTypes:[CLOSED_EVENT],last:1){nodes{... on ClosedEvent{closer{... on PullRequest{number merged repository{nameWithOwner}}}}}}}}}}}",
     { i: feature },
@@ -68,7 +68,7 @@ export function featureDetails(feature) {
           : undefined,
     };
   });
-  return { ...issue, subIssues };
+  return { ...issue, labels: issue.labels.nodes.map((l) => l.name), subIssues };
 }
 
 // NB: Søke-API-et (gh pr list --search, GraphQL search) kan ikke brukes her: GITHUB_TOKEN i Actions kan bare

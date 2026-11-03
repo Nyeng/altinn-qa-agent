@@ -43,6 +43,8 @@ const DRY_RUN = process.env.DRY_RUN === "true";
 const AUTO = process.env.SNOKEN_AUTO !== "false";
 const AUTO_ENV = process.env.SNOKEN_AUTO_ENV || "at22";
 const AUTO_CATEGORIES = ["funksjonell", "bak-flagg"];
+// Features med disse etikettene er UI-arbeid i altinn-access-management-frontend.
+const FRONTEND_LABELS = ["Frontend", "area/access-management-frontend"];
 const DAILY_MAX = Number(process.env.SNOKEN_DAILY_MAX || 5);
 // Automatikken ser bare på PR-er/Features fra og med denne datoen (ISO), så eldre endringer ikke testes i ettertid.
 const NOT_BEFORE = process.env.SNOKEN_NOT_BEFORE || "";
@@ -327,6 +329,11 @@ function featureReadiness(req) {
   const f = featureDetails(req.number);
   const done = f.subIssues.filter((s) => s.state === "CLOSED" && s.stateReason !== "NOT_PLANNED");
   if (f.subIssues.some((s) => s.state === "OPEN")) return { waiting: "Featuren har fortsatt åpne sub-issues." };
+  // Frontend-Features (Tilgangsstyring-UI) testes av frontend-QA lokalt, ikke av API-agenten.
+  const frontend = f.labels.filter((l) => FRONTEND_LABELS.includes(l));
+  if (frontend.length && !req.force) {
+    return { done: `Kjøres ikke: frontend-Feature (${frontend.join(", ")}) - testes av frontend-QA lokalt.` };
+  }
   const prs = done.filter((s) => s.pr).map((s) => s.pr);
   const external = done.filter((s) => s.externalPr).map((s) => s.externalPr);
   // Leverer Featuren bare tester, CI eller dokumentasjon, er det ingen ny API-oppførsel å teste.

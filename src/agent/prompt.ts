@@ -47,7 +47,8 @@ resultatet "ikke testet", selv om svaret så riktig ut.
   for kort/lang, feil type, unicode). Både opprettelse og oppdatering hvis begge er endret.
 - Trimming/normalisering: verifiser den LAGREDE verdien med et påfølgende GET, ikke bare statuskoden.
 - Tilgangskontroll: én bruker med tilgang og én uten. Prøv den andres ressurs/part. Rettigheter skal forsvinne
-  når de trekkes tilbake.
+  når de trekkes tilbake. En avvisning (401/403/404) beviser bare noe når samme kall har lyktes i en positiv
+  kontroll (samme endepunkt, en part/bruker som SKAL ha tilgang). Avvises begge, er kravet 'ikke testet'.
 - Feilhåndtering: feilen skal gi riktig 4xx, ikke 500, og ikke lekke stack trace eller interne detaljer.
 - Filtre/søk: et filter som skal treffe, et som ikke skal, og kombinasjoner.
 
