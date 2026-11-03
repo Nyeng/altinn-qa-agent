@@ -42,7 +42,20 @@ export function summary(body) {
     })
     .find((p) => p.length > 20);
   if (!paragraph) return "";
-  return paragraph.length > MAX_SUMMARY ? `${paragraph.slice(0, MAX_SUMMARY - 1)}…` : paragraph;
+  const short = paragraph.length > MAX_SUMMARY ? `${paragraph.slice(0, MAX_SUMMARY - 1)}…` : paragraph;
+  // @navn fra PR-teksten skal ikke varsle folk fra dette repoet.
+  return short.replace(/(^|[\s(])@(?=[\w-])/g, "$1@\u200b");
+}
+
+/**
+ * Lenker til andre repoer uten å legge igjen «mentioned in» der. GitHub lager en tilbakelenke for hver
+ * github.com-lenke og hver owner/repo#nr, og den blir stående selv om teksten endres eller slettes.
+ * redirect.github.com (samme triks som Dependabot) peker til samme side uten tilbakelenke.
+ */
+export function noBacklink(text) {
+  return text
+    .replace(/https:\/\/(www\.)?github\.com\//g, "https://redirect.github.com/")
+    .replace(/(^|[^\w`/.-])([\w.-]+\/[\w.-]+#\d+)\b/g, "$1`$2`");
 }
 
 /** "🕵️ Fix next link to be included (altinn-auth#4613 · at22)" - id og miljø står til slutt, for sporing. */
@@ -60,5 +73,5 @@ export function issueIntro({ title, body, url, kind, extra }) {
   const text = summary(body);
   if (text) lines.push("", text);
   if (extra) lines.push("", extra);
-  return lines.join("\n");
+  return noBacklink(lines.join("\n"));
 }

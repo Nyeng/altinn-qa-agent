@@ -7,6 +7,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { gh, ghJson } from "./altinn.mjs";
+import { noBacklink } from "./issue-text.mjs";
 import { setStatus, upsertReport } from "./publish.mjs";
 
 const REPO = "Nyeng/altinn-qa-agent";
@@ -120,7 +121,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   let issue = findIssue(key);
   if (!issue) {
     const body =
-      `**Status:** ⏳\n\n**${src.kind}:** [${src.title}](${src.url})\n\nGUI-test i ${env} (lokal frontend-QA).\n\n` +
+      `**Status:** ⏳\n\n**${src.kind}:** [${src.title}](${noBacklink(src.url)})\n\nGUI-test i ${env} (lokal frontend-QA).\n\n` +
       `<!-- gui-key:${key} -->`;
     const url = gh([
       "issue",

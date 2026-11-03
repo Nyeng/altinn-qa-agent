@@ -26,7 +26,7 @@ import {
   SOURCE_REPO,
   mergedPullRequestsSince,
 } from "./altinn.mjs";
-import { issueIntro, issueTitle } from "./issue-text.mjs";
+import { issueIntro, issueTitle, noBacklink } from "./issue-text.mjs";
 import { CATEGORIES, classify, isRuntimeCode } from "./pr-testability.mjs";
 import { setStatus } from "./publish.mjs";
 
@@ -246,7 +246,9 @@ function registerRequests() {
       status: isPr ? "⏳ Venter på merge og deploy" : "⏳ Venter",
       intro:
         issueIntro({ title: source.title, body: source.body, url: source.url, kind: isPr ? "PR" : "Issue" }) +
-        `\n\n**Bestilt av** @${req.author} ([kommentar](${req.commentUrl})): ${req.charter || "(standard)"}`,
+        noBacklink(
+          `\n\n**Bestilt av** @${req.author} ([kommentar](${req.commentUrl})): ${req.charter || "(standard)"}`,
+        ),
     });
   }
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 // @ts-expect-error - JS-modul uten typer (skriptene kjøres med ren node i CI)
-import { humanTitle, issueIntro, issueTitle, summary } from "../scripts/issue-text.mjs";
+import { humanTitle, issueIntro, issueTitle, noBacklink, summary } from "../scripts/issue-text.mjs";
 
 describe("issue-tekst", () => {
   it("fjerner conventional commit-prefiks fra tittelen", () => {
@@ -42,6 +42,26 @@ describe("issue-tekst", () => {
         kind: "PR",
       }),
       /^\*\*PR:\*\* \[X\]\(https:\/\/u\)\n\nDette er en tekst/,
+    );
+  });
+});
+
+describe("lenker uten tilbakelenke", () => {
+  it("bruker redirect.github.com og lar owner/repo#nr være ulenket", () => {
+    assert.equal(
+      noBacklink("Se https://github.com/Altinn/altinn-auth/issues/1 og Altinn/altinn-auth#2 (altinn-auth#3)"),
+      "Se https://redirect.github.com/Altinn/altinn-auth/issues/1 og `Altinn/altinn-auth#2` (altinn-auth#3)",
+    );
+    assert.equal(
+      noBacklink("https://raw.githubusercontent.com/a/b/c.png"),
+      "https://raw.githubusercontent.com/a/b/c.png",
+    );
+  });
+
+  it("varsler ikke @navn fra PR-teksten", () => {
+    assert.equal(
+      summary("Takk til @someone for en lang nok tekst her."),
+      "Takk til @\u200bsomeone for en lang nok tekst her.",
     );
   });
 });

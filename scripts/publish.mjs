@@ -7,13 +7,14 @@
 // Leser GH_TOKEN og GITHUB_REPOSITORY fra miljøet.
 import { readFileSync } from "node:fs";
 import { gh } from "./altinn.mjs";
+import { noBacklink } from "./issue-text.mjs";
 
 const REPO = process.env.GITHUB_REPOSITORY ?? "Nyeng/altinn-qa-agent";
 const REPORT_MARKER = "<!-- snoken-rapport -->";
 const STATUS_RE = /^\*\*Status:\*\*.*$/m;
 
 export function upsertReport(issue, body) {
-  const text = `${REPORT_MARKER}\n${body}`;
+  const text = `${REPORT_MARKER}\n${noBacklink(body)}`;
   const comments = JSON.parse(
     gh(["api", `repos/${REPO}/issues/${issue}/comments?per_page=100`, "--paginate", "--slurp"]),
   ).flat();
