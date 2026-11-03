@@ -29,7 +29,9 @@ Arbeidsmappe: repoet `altinn-qa-agent` (der denne skillen ligger). Kjør alle ko
    - **Publiser:** `node scripts/publish-gui.mjs <key>`. Lager eller oppdaterer issuen (statuslinje + én
      rapportkommentar) og laster opp skjermbildene. Feiler publiseringen, noter det i oppsummeringen - ikke prøv
      andre veier.
-   - Hold deg til ~25 nettleserhandlinger per kandidat.
+   - **Dekk alle akseptansekriterier.** Budsjett: ~80 nettleserhandlinger per kandidat (lokalt abonnement, ikke
+     API-kostnad). «Budsjett» er bare en gyldig grunn for ⚪ når det faktisk er brukt opp - ellers test videre.
+     ⚪ skal ha en konkret årsak (manglende testdata, flagg av, ikke deployet), som i API-rapportene.
 3. **Nettleser:** bruk **`playwright-headless`** fra `.mcp.json` (skjult nettleser, så det virker på låst
    skjerm; tillatt-liste for testmiljøene, prod blokkert). Er den ikke tilgjengelig, bruk `playwright`, og
    deretter appens innebygde nettleser - med nøyaktig de samme reglene. Aldri prod.
