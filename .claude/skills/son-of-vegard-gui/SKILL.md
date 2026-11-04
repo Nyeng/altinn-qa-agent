@@ -58,8 +58,8 @@ Argumenter: en PR- eller Feature-lenke (altinn-access-management-frontend eller 
    - feilhåndtering: feilmeldinger, tilbakeknapp, oppdatering midt i en flyt
    - tilgjengelighet: mangler et element rolle eller navn, er det i seg selv et funn
      Ta skjermbilde ved funn.
-   **Mangler testdata? Lag konstellasjonen selv før du gir opp.** «Fant ingen slik konstellasjon» er bare en
-   gyldig ⚪-årsak når du har prøvd dette:
+     **Mangler testdata? Lag konstellasjonen selv før du gir opp.** «Fant ingen slik konstellasjon» er bare en
+     gyldig ⚪-årsak når du har prøvd dette:
    - **Andre personer** (f.eks. «Ny bruker»-dialogen, som krever fødselsnummer og etternavn): hent en ekstra
      bruker med `testuser.mts hent`, som viser pid og etternavn.
    - **Virksomheter, underenheter og hovedenheter:** Enhetsregisterets testmiljø har Tenor-virksomhetene, f.eks.
