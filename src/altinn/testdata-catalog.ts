@@ -132,8 +132,9 @@ export const CATEGORIES: Category[] = [
       max: 5,
     },
     pid: "innloggingPid",
-    // Ikke i fila ennå - token generator klarer seg med pid, men noen API-er krever userId/partyuuid i tokenet.
+    // Trengs for API-tokens. Brukes når kolonnene finnes i fila.
     userId: "innloggingUserId",
+    partyId: "innloggingPartyId",
     partyUuid: "innloggingPartyUuid",
     context: {
       profil: "profil",
@@ -147,7 +148,7 @@ export const CATEGORIES: Category[] = [
     setup:
       "Klientene til hver aktør står i testdata/klientdelegering/klienter-alle.csv, én rad per klient " +
       "(miljo, profil, aktorOrgnr, klientOrgnr, klientNavn, klientType, roller, erOgEgendefinert, pakker). " +
-      "Filtrer på miljo og aktorOrgnr. Tokenet har bare pid, ikke userId/partyuuid: avvises et kall av den grunn, er kravet 'ikke testet', ikke et funn.",
+      "Filtrer på miljo og aktorOrgnr. Mangler brukeren userId, har tokenet bare pid: avvises et kall av den grunn, er kravet 'ikke testet', ikke et funn.",
   },
   {
     id: "klient-agent",
