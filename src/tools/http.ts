@@ -212,7 +212,10 @@ async function send(input: HttpInput, prep: Prepared, session: Session): Promise
     const text = await res.text();
     log(res.status, text, res.headers.get("content-type") ?? undefined);
     session.responseBodies.set(id, text);
-    if (input.method === "POST" && res.ok) session.owned.rememberCreated(input.body, text, res.headers.get("location"));
+    if (input.method === "POST" && res.ok) {
+      session.owned.rememberCreated(input.body, text, res.headers.get("location"));
+      session.owned.rememberPost(prep.url);
+    }
     return { id, ms: Date.now() - started, res, text };
   } catch (err) {
     log("feil", (err as Error).message);

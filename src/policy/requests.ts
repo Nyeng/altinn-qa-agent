@@ -1,6 +1,7 @@
 // Sikkerhetsregler for hver HTTP-forespørsel. Håndheves i koden, ikke i prompten:
 //  - URL-en må ligge under API-ets vert og i et Altinn-testmiljø (sjekkes på normalisert URL)
-//  - DELETE er kun lov for opprydding av egne `snoken-*`-ressurser (med mindre allowDelete)
+//  - DELETE er lov mot data opprettet med POST i samme økt (f.eks. for å teste tilbaketrekking) og egne
+//    `snoken-*`-ressurser (alt med allowDelete)
 //  - PUT/PATCH er kun lov mot data opprettet med POST i samme økt (aldri eksisterende/delte testdata)
 //  - Ingenting som sender meldinger til ekte mottakere (varselbestillinger, videresending på e-post)
 import { assertAllowedHost } from "./environments.js";
@@ -35,8 +36,17 @@ export function checkRequest(opts: {
   }
 
   const lastSegment = url.pathname.split("/").filter(Boolean).pop() ?? "";
-  if (method === "DELETE" && !allowDelete && !/^snoken-[a-z0-9_-]+$/.test(lastSegment)) {
-    return "DELETE er kun lov for opprydding av egne testressurser (identifikator som starter med snoken-).";
+  if (
+    method === "DELETE" &&
+    !allowDelete &&
+    !/^snoken-[a-z0-9_-]+$/.test(lastSegment) &&
+    !owned.isTargetedBy(url) &&
+    !owned.undoesPost(url)
+  ) {
+    return (
+      "DELETE er kun lov mot testdata du har opprettet med POST i denne økten, eller egne snoken-*-ressurser " +
+      `(kjente: ${owned.list().join(", ") || "ingen ennå"}). Opprett det du vil slette først.`
+    );
   }
   if ((method === "PUT" || method === "PATCH") && !owned.isTargetedBy(url)) {
     return (
@@ -58,6 +68,7 @@ const ID_KEY = /^(id|identifier|uuid|[a-z]*(Id|Uuid))$/;
 /** Id-er til data opprettet med POST i økten. PUT/PATCH må treffe en av dem. */
 export class OwnedData {
   private readonly ids = new Set<string>();
+  private readonly posts: URL[] = [];
 
   /** Registrer id-er fra en vellykket POST: Location-header og id-felt i forespørsel og svar. */
   rememberCreated(requestBody: string | undefined, responseText: string, location: string | null): void {
@@ -82,6 +93,20 @@ export class OwnedData {
     }
   }
 
+  /** Husk en vellykket POST, så den kan trekkes tilbake med DELETE mot samme sti og parametere. */
+  rememberPost(url: URL): void {
+    this.posts.push(url);
+  }
+
+  /**
+   * Speiler DELETE en POST fra økten? Samme sti og nøyaktig de samme query-parameterne, så en bredere DELETE
+   * (f.eks. bare ?party=) aldri treffer mer enn det agenten ga. Slik kan den fjerne en fullmakt den selv ga
+   * (POST/DELETE connections?party=&to=&package=).
+   */
+  undoesPost(url: URL): boolean {
+    return this.posts.some((post) => post.pathname === url.pathname && sortedParams(post) === sortedParams(url));
+  }
+
   /** Treffer URL-en (stisegmenter eller query-verdier) noe opprettet i økten? */
   isTargetedBy(url: URL): boolean {
     const segments = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
@@ -92,3 +117,9 @@ export class OwnedData {
     return [...this.ids];
   }
 }
+
+const sortedParams = (url: URL) =>
+  [...url.searchParams]
+    .map(([k, v]) => `${k}=${v}`)
+    .sort()
+    .join("&");

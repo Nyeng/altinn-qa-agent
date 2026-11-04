@@ -31,7 +31,7 @@ describe("verter", () => {
 });
 
 describe("DELETE", () => {
-  it("er kun lov for egne snoken-*-ressurser, sjekket på normalisert URL", () => {
+  it("avvises mot eksisterende data, også forsøk via snoken-* i stien (normalisert URL)", () => {
     assert.equal(check("DELETE", "/resourceregistry/api/v1/resource/snoken-ws-1"), undefined);
     for (const path of [
       "/resourceregistry/api/v1/resource/ttd-viktig",
@@ -40,6 +40,25 @@ describe("DELETE", () => {
       "/resourceregistry/api/v1/resource/ttd-viktig?x=/snoken-a",
     ]) {
       assert.match(check("DELETE", path) ?? "", /DELETE er kun lov/, path);
+    }
+  });
+
+  it("er lov mot data opprettet med POST i økten, f.eks. for å teste tilbaketrekking", () => {
+    const owned = new OwnedData();
+    const conn = "/accessmanagement/api/v1/enduser/connections/accesspackages";
+    owned.rememberPost(resolveUrl(base, `${conn}?party=p1&to=t1&package=pk1`));
+    owned.rememberCreated(undefined, '{"id":"a1b2c3d4"}', null);
+    // Samme fullmakt som ble gitt kan fjernes (rekkefølgen på parameterne spiller ingen rolle)
+    assert.equal(check("DELETE", `${conn}?package=pk1&party=p1&to=t1`, owned), undefined);
+    assert.equal(check("DELETE", "/x/a1b2c3d4", owned), undefined);
+    // Men ikke en annen mottaker, en annen pakke, en bredere DELETE eller en annen sti
+    for (const path of [
+      `${conn}?party=p1&to=annen&package=pk1`,
+      `${conn}?party=p1&to=t1&package=pk2`,
+      `${conn}?party=p1`,
+      "/x/ttd-viktig",
+    ]) {
+      assert.match(check("DELETE", path, owned) ?? "", /DELETE er kun lov/, path);
     }
   });
 

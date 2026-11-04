@@ -66,4 +66,4 @@ Testdata for klientdelegering (revisor, regnskapsfører, forretningsfører og eg
 - Kun testmiljøene at22, at23 og tt02.
 - Tokens og nøkler sendes aldri til modellen.
 - Ingenting som sender varsler eller e-post til ekte mottakere.
-- `PUT`/`PATCH` kun mot data agenten selv har opprettet, `DELETE` kun for opprydding av egne `snoken-*`-ressurser.
+- `PUT`/`PATCH`/`DELETE` kun mot data agenten selv har opprettet i økten, f.eks. for å teste tilbaketrekking.

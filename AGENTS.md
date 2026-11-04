@@ -43,7 +43,8 @@ test/                   node:test via tsx
 - **Sikkerhet håndheves i kode, aldri bare i prompten.** Nye regler går i `src/policy/` med tester.
 - **Hemmeligheter når aldri modellen.** Alt som returneres fra et verktøy går gjennom `session.redactor`.
 - **Kun testmiljøer.** Vert-allowlisten i `policy/environments.ts` skal ikke utvides til prod.
-- **PUT/PATCH kun mot data opprettet i økten, DELETE kun for egne `snoken-*`-ressurser.**
+- **PUT/PATCH/DELETE kun mot data opprettet i økten** (DELETE også for egne `snoken-*`-ressurser). Slik kan
+  agenten teste tilbaketrekking av noe den selv har gitt, uten å røre delte testdata.
 - **Ingenting som når ekte mottakere** (varselbestillinger, videresending på e-post) - sperret i `policy/requests.ts`.
 - **Ikke kopier kunnskap fra platform-validation-tests.** Les den fra GitHub (`altinn/pvt-knowledge.ts`), så den
   aldri driver fra kilden. Tjenesteeier-scopes begrenses til PVT-lista minus admin, deploy og varselutsending.
