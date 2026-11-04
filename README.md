@@ -11,6 +11,10 @@ mot API-ene i testmiljøet, med Claude API. Resultatet er en kort rapport: hva s
 3. Agenten tester mot akseptansekriteriene (fra issuet eller Featuren) og poster rapporten som en issue i dette repoet.
    Hvordan API-ene brukes, slår den opp i [altinn-platform-validation-tests](https://github.com/Altinn/altinn-platform-validation-tests)
    – alle Altinn-produktene, ingenting kopiert.
+4. Åpne issues er bare rapporter med funn til vurdering (label `funn`). Det som venter, kjører eller er ferdig uten
+   funn, er lukket og står i den festede oversikten «📋 Son of Vegard – status». Endringer bak frontend-flagg og
+   Features uten ny API-oppførsel får ingen issue. Bak backend-flagg venter testen til du krysser av i issuen at
+   flagget er på i miljøet.
 
 ## Hva testes
 

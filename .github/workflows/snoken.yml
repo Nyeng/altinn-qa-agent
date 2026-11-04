@@ -109,6 +109,8 @@ jobs:
           # Én rapportkommentar per issue (oppdateres ved ny kjøring) + statuslinje i issueteksten
           node scripts/publish.mjs report "$NUMBER" comment.md
           node scripts/publish.mjs status "$NUMBER" "$(cat reports/status.txt) $(date -u +%Y-%m-%d) i ${{ steps.charter.outputs.env }}"
+          # Åpen = til vurdering: bare rapporter med funn står åpne, resten lukkes (oversikten i status-issuen).
+          node scripts/publish.mjs triage "$NUMBER" "$(cat reports/findings.txt)"
 
       - name: Si fra om feil
         if: failure()

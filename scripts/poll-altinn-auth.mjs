@@ -14,6 +14,11 @@
 //    Features venter til alle PR-ene som lukket sub-issuene er deployet.
 // 3. Maks SNOKEN_DAILY_MAX økter per dag totalt (resten venter til neste dag).
 //
+// Åpne issues er bare det som er til vurdering: rapporter med funn (label «funn»). Forespørsler som venter, kjører
+// eller er ferdige uten funn, er lukket, og oversikts-issuen («📋 Son of Vegard – status») viser dem.
+// Det som ikke skal kjøres (frontend-Features, Features med bare tester, PR-er bak frontend-flagg), får ingen issue.
+// PR-er bak backend-flagg venter til avkrysningsboksen for flagget er krysset av (se flags.mjs).
+//
 // Miljø: GH_TOKEN, GITHUB_REPOSITORY, SNOKEN_ALLOWED_USERS, SNOKEN_DEPLOY_DELAY_MINUTES, SNOKEN_AUTO_ENV,
 //        SNOKEN_DAILY_MAX, SNOKEN_AUTO (false = slå av automatikken), LOOKBACK_HOURS, DRY_RUN.
 import {
@@ -26,6 +31,7 @@ import {
   SOURCE_REPO,
   mergedPullRequestsSince,
 } from "./altinn.mjs";
+import { flagCheckbox, flagEnabled, flagsInDiff, isFrontendFlag } from "./flags.mjs";
 import { issueIntro, issueTitle, noBacklink } from "./issue-text.mjs";
 import { CATEGORIES, classify, isRuntimeCode } from "./pr-testability.mjs";
 import { setStatus } from "./publish.mjs";
@@ -39,6 +45,8 @@ const GIVE_UP_HOURS = 7 * 24; // merget, men aldri sett deployet
 const MAX_RUNS_PER_POLL = 3;
 const LABEL = "snoken";
 const WAITING = "snoken-venter";
+const OVERVIEW = "snoken-oversikt";
+const FINDINGS = "funn";
 const DRY_RUN = process.env.DRY_RUN === "true";
 const AUTO = process.env.SNOKEN_AUTO !== "false";
 const AUTO_ENV = process.env.SNOKEN_AUTO_ENV || "at22";
@@ -101,8 +109,11 @@ function alreadyRegistered(key, titleRef) {
   return count(`"${key}" in:body`) !== "0" || (titleRef && count(`"${titleRef}" in:title`) !== "0");
 }
 
-function createRequestIssue({ title, status, intro, req, key }) {
-  const body = `**Status:** ${status}\n\n${intro}\n\n<!-- snoken-key:${key} -->\n<!-- snoken:${JSON.stringify(req)} -->`;
+// Issuen lukkes med en gang: den åpnes bare igjen hvis rapporten har funn (se snoken.yml og publish-gui.mjs).
+function createRequestIssue({ title, status, intro, req, key, extra }) {
+  const body =
+    `**Status:** ${status}\n\n${intro}\n\n${extra ? `${extra}\n\n` : ""}` +
+    `<!-- snoken-key:${key} -->\n<!-- snoken:${JSON.stringify(req)} -->`;
   createdKeys.add(key);
   if (DRY_RUN) {
     log(`ville registrert: ${title}`);
@@ -122,7 +133,9 @@ function createRequestIssue({ title, status, intro, req, key }) {
     "--body",
     body,
   ]);
-  justCreated.push({ number: Number(url.split("/").pop()), body, comments: [] });
+  const number = Number(url.trim().split("/").pop());
+  gh(["issue", "close", String(number), "-R", OWN_REPO]);
+  justCreated.push({ number, body, comments: [] });
   console.log(`Registrerte ${title} → ${url}`);
 }
 
@@ -136,6 +149,14 @@ function registerAutoPullRequests(since) {
     if (!AUTO_CATEGORIES.includes(c.category)) continue;
     const key = `auto-pr-${pr.number}-${AUTO_ENV}`;
     if (alreadyRegistered(key, `altinn-auth#${pr.number} · ${AUTO_ENV}`)) continue;
+    // Bak flagg: frontend-flagg testes ikke her, backend-flagg venter på avkrysning (flags.mjs).
+    const flags =
+      c.category === "bak-flagg" ? flagsInDiff(gh(["pr", "diff", String(pr.number), "-R", SOURCE_REPO])) : [];
+    if (flags.length && flags.every(isFrontendFlag)) {
+      console.log(`#${pr.number}: hoppet over - bak frontend-flagg (${flags.join(", ")}), testes ikke av API-agenten`);
+      continue;
+    }
+    const backendFlags = flags.filter((f) => !isFrontendFlag(f));
     const feature = closingIssues(pr.number)
       .map((i) => featureOf(i.number))
       .find(Boolean);
@@ -154,12 +175,14 @@ function registerAutoPullRequests(since) {
       sourceUrl: pr.url,
       charter: "",
       feature: feature?.number,
+      ...(backendFlags.length ? { flags: backendFlags } : {}),
     };
     createRequestIssue({
       key,
       req,
       title: issueTitle({ title: pr.title, number: pr.number, env: AUTO_ENV }),
-      status: "⏳ Venter på deploy",
+      status: backendFlags.length ? "🚩 Venter på at flagget slås på" : "⏳ Venter på deploy",
+      extra: backendFlags.length ? flagCheckbox(backendFlags, AUTO_ENV) : undefined,
       intro: issueIntro({
         title: pr.title,
         body: pr.body,
@@ -180,6 +203,11 @@ function registerCompletedFeatures(since) {
   for (const f of features) {
     const key = `auto-feature-${f.number}-${AUTO_ENV}`;
     if (alreadyRegistered(key, `altinn-auth#${f.number} · ${AUTO_ENV}`)) continue;
+    const skip = featureSkip(featureDetails(f.number));
+    if (skip) {
+      console.log(`Feature #${f.number}: hoppet over - ${skip}`);
+      continue;
+    }
     const req = { auto: true, isFeature: true, number: String(f.number), env: AUTO_ENV, sourceUrl: f.url, charter: "" };
     createRequestIssue({
       key,
@@ -327,31 +355,35 @@ export function readiness(req) {
 }
 
 // En Feature er klar når alle PR-ene (i altinn-auth) som lukket sub-issuene er deployet.
+// Grunn til at en Feature ikke skal testes av API-agenten, eller undefined.
+function featureSkip(f) {
+  // Frontend-Features (Tilgangsstyring-UI) testes av frontend-QA lokalt, ikke av API-agenten.
+  const frontend = f.labels.filter((l) => FRONTEND_LABELS.includes(l));
+  if (frontend.length) return `frontend-Feature (${frontend.join(", ")}) - testes av frontend-QA lokalt.`;
+  const done = f.subIssues.filter((s) => s.state === "CLOSED" && s.stateReason !== "NOT_PLANNED");
+  const prs = done.filter((s) => s.pr).map((s) => s.pr);
+  const external = done.filter((s) => s.externalPr).map((s) => s.externalPr);
+  // Leverer Featuren bare tester, CI eller dokumentasjon, er det ingen ny API-oppførsel å teste.
+  if (!prs.length || external.length) return undefined;
+  const categories = prs.map((pr) => {
+    const p = ghJson(["pr", "view", String(pr), "-R", SOURCE_REPO, "--json", "title,files"]);
+    return classify({ title: p.title, files: p.files.map((f) => f.path) }).category;
+  });
+  if (categories.some((c) => CATEGORIES[c].run)) return undefined;
+  return (
+    `ingen av PR-ene (${prs.map((p) => `#${p}`).join(", ")}) endrer API-oppførsel ` +
+    `(${[...new Set(categories.map((c) => CATEGORIES[c].name))].join(", ")}).`
+  );
+}
+
 function featureReadiness(req) {
   const f = featureDetails(req.number);
   const done = f.subIssues.filter((s) => s.state === "CLOSED" && s.stateReason !== "NOT_PLANNED");
   if (f.subIssues.some((s) => s.state === "OPEN")) return { waiting: "Featuren har fortsatt åpne sub-issues." };
-  // Frontend-Features (Tilgangsstyring-UI) testes av frontend-QA lokalt, ikke av API-agenten.
-  const frontend = f.labels.filter((l) => FRONTEND_LABELS.includes(l));
-  if (frontend.length && !req.force) {
-    return { done: `Kjøres ikke: frontend-Feature (${frontend.join(", ")}) - testes av frontend-QA lokalt.` };
-  }
+  const skip = req.force ? undefined : featureSkip(f);
+  if (skip) return { done: `Kjøres ikke: ${skip}` };
   const prs = done.filter((s) => s.pr).map((s) => s.pr);
   const external = done.filter((s) => s.externalPr).map((s) => s.externalPr);
-  // Leverer Featuren bare tester, CI eller dokumentasjon, er det ingen ny API-oppførsel å teste.
-  if (prs.length && !external.length && !req.force) {
-    const categories = prs.map((pr) => {
-      const p = ghJson(["pr", "view", String(pr), "-R", SOURCE_REPO, "--json", "title,files"]);
-      return classify({ title: p.title, files: p.files.map((f) => f.path) }).category;
-    });
-    if (!categories.some((c) => CATEGORIES[c].run)) {
-      return {
-        done:
-          `Kjøres ikke: ingen av PR-ene (${prs.map((p) => `#${p}`).join(", ")}) endrer API-oppførsel ` +
-          `(${[...new Set(categories.map((c) => CATEGORIES[c].name))].join(", ")}).`,
-      };
-    }
-  }
   const pending = [];
   for (const pr of prs) {
     const r = readiness({ isPr: true, number: String(pr), env: req.env, force: true });
@@ -396,18 +428,8 @@ function runsToday() {
 
 function startReady() {
   const listed =
-    ghJson([
-      "issue",
-      "list",
-      "-R",
-      OWN_REPO,
-      "--label",
-      WAITING,
-      "--state",
-      "open",
-      "--json",
-      "number,body,comments",
-    ]) ?? [];
+    ghJson(["issue", "list", "-R", OWN_REPO, "--label", WAITING, "--state", "all", "--json", "number,body,comments"]) ??
+    [];
   const waiting = [...listed, ...justCreated.filter((n) => !listed.some((l) => l.number === n.number))];
   let started = 0;
   const alreadyToday = runsToday();
@@ -415,19 +437,23 @@ function startReady() {
     const meta = issue.body.match(/<!-- snoken:(.*) -->/)?.[1];
     if (!meta) continue;
     const req = JSON.parse(meta);
-    const r = readiness(req);
+    const r =
+      req.flags?.length && !req.force && !flagEnabled(issue.body)
+        ? { waiting: `🚩 Venter på at ${req.flags.join(", ")} slås på i ${req.env} (kryss av i issuen).` }
+        : readiness(req);
 
     if (r.done) {
       log(`#${issue.number}: ${r.done}`);
       if (!DRY_RUN) {
         setStatus(issue.number, /^[⚪🔵]/u.test(r.done) ? r.done : `⏹️ ${r.done}`);
+        gh(["issue", "edit", String(issue.number), "-R", OWN_REPO, "--remove-label", WAITING]);
         gh(["issue", "close", String(issue.number), "-R", OWN_REPO]);
       }
       continue;
     }
     if (r.waiting) {
       log(`#${issue.number}: ⏳ ${r.waiting}`);
-      if (!DRY_RUN) setStatus(issue.number, `⏳ ${r.waiting}`);
+      if (!DRY_RUN) setStatus(issue.number, r.waiting.startsWith("🚩") ? r.waiting : `⏳ ${r.waiting}`);
       continue;
     }
     if (alreadyToday + started >= DAILY_MAX) {
@@ -468,6 +494,75 @@ function startReady() {
   }
 }
 
+// ── 3. Oversikt ──────────────────────────────────────────────────────────────
+// Én åpen issue som viser det som er lukket fordi det ikke er til vurdering ennå: venter, kjører, ferdig uten funn.
+export function overviewBody(issues) {
+  const status = (i) => i.body?.match(/^\*\*Status:\*\* (.*)$/m)?.[1] ?? "";
+  const line = (i) => `- #${i.number} ${status(i)}`;
+  const has = (i, label) => i.labels.some((l) => l.name === label);
+  const requests = issues.filter((i) => !has(i, OVERVIEW));
+  const sections = [
+    ["🔎 Til vurdering (funn)", requests.filter((i) => i.state === "OPEN" && has(i, FINDINGS))],
+    ["▶️ Kjører", requests.filter((i) => status(i).startsWith("▶️"))],
+    ["🚩 Venter på feature-flagg", requests.filter((i) => has(i, WAITING) && status(i).startsWith("🚩"))],
+    ["⏳ Venter på merge eller deploy", requests.filter((i) => has(i, WAITING) && !status(i).startsWith("🚩"))],
+    [
+      "✔️ Ferdig (lukket, siste 15)",
+      requests.filter((i) => i.state === "CLOSED" && !has(i, WAITING) && /^(✅|🟡|⚪)/u.test(status(i))).slice(0, 15),
+    ],
+  ];
+  return [
+    "Oppdateres av pollingen. Åpne issues er bare rapporter med funn til vurdering. Resten er lukket og står her (også rapporter med funn du har vurdert og lukket).",
+    "Backend-flagg: kryss av i issuen når flagget er på i miljøet, så starter testen ved neste polling.",
+    ...sections.map(([title, list]) => `### ${title}\n${list.length ? list.map(line).join("\n") : "- Ingen"}`),
+  ].join("\n\n");
+}
+
+function updateOverview() {
+  const issues =
+    ghJson([
+      "issue",
+      "list",
+      "-R",
+      OWN_REPO,
+      "--label",
+      LABEL,
+      "--state",
+      "all",
+      "--limit",
+      "200",
+      "--json",
+      "number,state,labels,body",
+    ]) ?? [];
+  const body = overviewBody(issues);
+  const existing = issues.find((i) => i.labels.some((l) => l.name === OVERVIEW));
+  if (DRY_RUN) return log(`ville oppdatert oversikten:\n${body}`);
+  if (existing) {
+    if (existing.body !== body)
+      gh(["issue", "edit", String(existing.number), "-R", OWN_REPO, "--body-file", "-"], body);
+    if (existing.state !== "OPEN") gh(["issue", "reopen", String(existing.number), "-R", OWN_REPO]);
+    return;
+  }
+  const url = gh(
+    [
+      "issue",
+      "create",
+      "-R",
+      OWN_REPO,
+      "--title",
+      "📋 Son of Vegard – status",
+      "--label",
+      LABEL,
+      "--label",
+      OVERVIEW,
+      "--body-file",
+      "-",
+    ],
+    body,
+  );
+  gh(["issue", "pin", url.trim().split("/").pop(), "-R", OWN_REPO]);
+}
+
 // Kjøres som skript (ikke når readiness/deploymentStatus importeres i test).
 if (import.meta.url === `file://${process.argv[1]}`) {
   if (!DRY_RUN) {
@@ -483,6 +578,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       "Son of Vegard-forespørsel fra altinn-auth",
       "--force",
     ]);
+    for (const [name, color, description] of [
+      [OVERVIEW, "0e8a16", "Oversikt over Son of Vegard-forespørsler"],
+      [FINDINGS, "d93f0b", "Rapport med funn til vurdering"],
+    ]) {
+      gh(["label", "create", name, "-R", OWN_REPO, "--color", color, "--description", description, "--force"]);
+    }
     gh([
       "label",
       "create",
@@ -504,4 +605,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     registerCompletedFeatures(since);
   }
   startReady();
+  updateOverview();
 }

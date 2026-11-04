@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { gh, ghJson } from "./altinn.mjs";
 import { noBacklink } from "./issue-text.mjs";
-import { setStatus, upsertReport } from "./publish.mjs";
+import { setStatus, triage, upsertReport } from "./publish.mjs";
 
 const REPO = "Nyeng/altinn-qa-agent";
 const DIR = "reports/gui";
@@ -138,5 +138,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
   upsertReport(issue, report);
   setStatus(issue, status(report, env, statSync(reportPath).mtime));
+  triage(issue, (report.match(/^- 🐞/gmu) ?? []).length);
   console.log(`https://github.com/${REPO}/issues/${issue}`);
 }

@@ -53,6 +53,8 @@ await writeFile(path.join("reports", name), report);
 // Fast filnavn så CI kan poste rapporten, og alle detaljer (dekning, hele HTTP-loggen) til artefakten.
 await writeFile(path.join("reports", "latest.md"), report);
 await writeFile(path.join("reports", "status.txt"), runStatus(result.checks));
+// Antall funn styrer om issuen står åpen (til vurdering) eller lukkes.
+await writeFile(path.join("reports", "findings.txt"), String(result.findings.length));
 await writeFile(
   path.join("reports", "session.json"),
   JSON.stringify({ env: config.env, model: config.model, ...result }, null, 2),
