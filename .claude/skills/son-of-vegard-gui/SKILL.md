@@ -56,7 +56,7 @@ Argumenter: en PR- eller Feature-lenke (altinn-access-management-frontend eller 
    - grenseverdier og tomme tilstander (ingen parter, mange parter, lange navn, æøå)
    - tilgangskontroll: kan bruker-B se eller gjøre det bare bruker-A skal?
    - feilhåndtering: feilmeldinger, tilbakeknapp, oppdatering midt i en flyt
-   - tilgjengelighet: mangler et element rolle eller navn, er det i seg selv et funn
+   - tilgjengelighet: se steg 7 (universell utforming)
      Ta skjermbilde ved funn.
      **Mangler testdata? Lag konstellasjonen selv før du gir opp.** «Fant ingen slik konstellasjon» er bare en
      gyldig ⚪-årsak når du har prøvd dette:
@@ -70,7 +70,20 @@ Argumenter: en PR- eller Feature-lenke (altinn-access-management-frontend eller 
    - **«Lenking» / dyplenker:** test at sidens URL virker som lenke inn fra andre steder. Åpne URL-en i en ny
      nettleserkontekst før innlogging (havner du på riktig side etter innlogging og aktørvalg?), last siden på nytt,
      og bruk frem/tilbake.
-7. **Noter endringer:** det du har gitt, endret eller slettet, står under **Endringer** i rapporten.
+7. **Universell utforming (WCAG 2.1 A/AA)** av den nye eller endrede delen av siden, i hver tilstand den har
+   (f.eks. tom, med data, feil, dialog åpen):
+   - **Automatisk:** axe-core er lastet i alle sider. Kjør `browser_evaluate` med
+     `() => window.snokenUu("<selektor for den nye delen>")`. Den gir regel, WCAG-kriterium, antall og eksempler.
+     Bare brudd i det som er nytt eller endret er funn; brudd i resten av siden noteres ikke.
+   - **Manuelt** (det axe ikke kan avgjøre):
+     - tastatur: nå alt med Tab, i logisk rekkefølge, med synlig fokus, og aktiver med Enter/Space (2.1.1, 2.4.3, 2.4.7)
+     - dialoger: fokus flyttes inn, holdes der, Esc lukker, og fokus går tilbake til knappen som åpnet (2.4.3)
+     - skjemaer: feilmeldinger er koblet til feltet (`aria-describedby`/`aria-invalid`) og blir lest opp (3.3.1, 4.1.3)
+     - overskrifter og landemerker gir struktur, og navn på knapper og lenker gir mening alene (1.3.1, 2.4.6)
+     - reflow: `browser_resize` til 320 px bredde, ingen horisontal rulling og ingenting forsvinner (1.4.10)
+     - 200 % zoom: `browser_evaluate` med `() => { document.body.style.zoom = "2" }`, innholdet er fortsatt brukbart (1.4.4)
+   - Funn skrives som andre funn, med WCAG-kriterium og nivå i tittelen, f.eks. «Knapp uten navn (WCAG 4.1.2, A)».
+8. **Noter endringer:** det du har gitt, endret eller slettet, står under **Endringer** i rapporten.
 
 ## Rapport (kun dette, kort)
 
@@ -93,6 +106,8 @@ Argumenter: en PR- eller Feature-lenke (altinn-access-management-frontend eller 
 ```
 
 - ✅ krever at du faktisk utførte flyten som traff den nye koden. Ellers ⚪.
+- UU er ett eget krav i **Verifisert**: «Universell utforming (WCAG 2.1 A/AA) for <den nye delen>», ✅ når både
+  axe og de manuelle sjekkene er gjort uten brudd.
 - Før hvert funn: søk etter kjente bugs med `gh search issues --repo Altinn/altinn-auth --repo Altinn/altinn-access-management-frontend <stikkord>`.
   Er feilen meldt, legg til «Kjent bug:» med lenke. Bare nye funn holder issuen åpen. Opprett aldri issues i Altinn-repoene.
 - Ingen oppsummering, notater eller forslag utover dette.

@@ -60,6 +60,8 @@ npm run explore -- --env=at22 charters/01-autoriserte-parter-og-delegering.md
 Frontend (altinn-access-management-frontend) testes lokalt i Claude Code på eget abonnement – ikke via GitHub.
 Åpne Claude Code i dette repoet og kjør `/son-of-vegard-gui <PR-lenke> at23`. Nettleseren (Playwright MCP) er
 konfigurert i [`.mcp.json`](.mcp.json) med prod blokkert; testbrukere hentes med `npx tsx scripts/testuser.mts`.
+Universell utforming (WCAG 2.1 A/AA) testes også: axe-core lastes i alle sider fra `node_modules` (kjør `npm install`
+først), og [`scripts/uu-init.js`](scripts/uu-init.js) gir `window.snokenUu(selektor)` med kompakte brudd.
 
 Testdata for klientdelegering (revisor, regnskapsfører, forretningsfører og egendefinerte klienter) ligger i
 [`testdata/klientdelegering`](testdata/klientdelegering), se
