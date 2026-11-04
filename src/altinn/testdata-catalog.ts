@@ -7,6 +7,10 @@ type Source = {
   // Sti relativt til repo-roten. {env} erstattes med miljønavnet.
   path: string;
   envs: EnvName[];
+  // Fil i dette repoet (testdata/) i stedet for platform-validation-tests.
+  local?: boolean;
+  // Kolonne med miljønavnet, for filer med alle miljøer i én fil.
+  envColumn?: string;
 };
 
 export type Category = {
@@ -23,6 +27,8 @@ export type Category = {
   context: Record<string, string>;
   // Hvordan testdata som ikke ligger ferdig i datasettet, settes opp (vises i prompten).
   setup?: string;
+  // Eksempelrader fra en tilknyttet lokal fil (f.eks. klientene til aktøren), lagt i konteksten som `name`.
+  related?: { name: string; path: string; envColumn: string; match: string; columns: string[]; max: number };
 };
 
 const K6 = "K6/testdata";
@@ -107,6 +113,41 @@ export const CATEGORIES: Category[] = [
       roleCode: "klientrolle",
       resource: "ressurs knyttet til klientforholdet",
     },
+  },
+  {
+    id: "klientvirksomhet",
+    name: "Klientvirksomhet (revisor/regnskapsfører/forretningsfører med mange klienter)",
+    flow:
+      "Daglig leder i en virksomhet med klientforhold fra Enhetsregisteret eller egendefinerte klienter. " +
+      "Én bruker per profil og miljø.",
+    sources: [
+      { path: "testdata/klientdelegering/klientvirksomheter-alle.csv", envs: ALL, local: true, envColumn: "miljo" },
+    ],
+    related: {
+      name: "klienter",
+      path: "testdata/klientdelegering/klienter-alle.csv",
+      envColumn: "miljo",
+      match: "aktorOrgnr",
+      columns: ["klientOrgnr", "klientNavn", "klientType", "roller", "pakker"],
+      max: 5,
+    },
+    pid: "innloggingPid",
+    // Ikke i fila ennå - token generator klarer seg med pid, men noen API-er krever userId/partyuuid i tokenet.
+    userId: "innloggingUserId",
+    partyUuid: "innloggingPartyUuid",
+    context: {
+      profil: "profil",
+      innloggingNavn: "navn",
+      aktorOrgnr: "aktør (orgnr) å velge etter innlogging",
+      aktorNavn: "aktørens navn",
+      aktorPartyUuid: "aktørens partyUuid",
+      antallKlienter: "antall klienter",
+      beskrivelse: "beskrivelse",
+    },
+    setup:
+      "Klientene til hver aktør står i testdata/klientdelegering/klienter-alle.csv, én rad per klient " +
+      "(miljo, profil, aktorOrgnr, klientOrgnr, klientNavn, klientType, roller, erOgEgendefinert, pakker). " +
+      "Filtrer på miljo og aktorOrgnr. Tokenet har bare pid, ikke userId/partyuuid: avvises et kall av den grunn, er kravet 'ikke testet', ikke et funn.",
   },
   {
     id: "klient-agent",

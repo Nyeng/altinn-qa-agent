@@ -1,6 +1,7 @@
 // Testbrukere Son of Vegard kan opptre som, hentet fra Altinn/altinn-platform-validation-tests og gruppert etter
 // brukerflyt (se testdata-catalog.ts). Samme kilde som K6 sin fetchTestData.
 // Modellen ser alias, kategori, navn og ID-er - aldri fødselsnummer (pid registreres som hemmelighet).
+import { readFile } from "node:fs/promises";
 import type { EnvName } from "../policy/environments.js";
 import type { Redactor } from "../policy/redact.js";
 import { categoriesFor, type Category } from "./testdata-catalog.js";
@@ -92,7 +93,9 @@ export class TestUserPool {
 
     for (const source of category.sources.filter((s) => s.envs.includes(this.opts.env))) {
       const path = source.path.replaceAll("{env}", this.opts.env);
-      const rows = (await this.loadRows(path)).map((row, i) => ({ row, key: `${path}#${i}` }));
+      const rows = (await this.loadRows(path, source.local))
+        .filter((row) => !source.envColumn || row[source.envColumn] === this.opts.env)
+        .map((row, i) => ({ row, key: `${path}#${i}` }));
       // Tilfeldig rekkefølge, så ulike økter tester ulike brukere.
       for (const { row, key } of this.shuffle(rows)) {
         const pid = col(row, category.pid);
@@ -101,6 +104,19 @@ export class TestUserPool {
         const context: Record<string, string> = {};
         for (const [column, meaning] of Object.entries(category.context)) {
           if (row[column]) context[column] = `${row[column]} (${meaning})`;
+        }
+        const related = category.related;
+        if (related && row[related.match]) {
+          const examples = this.shuffle(
+            (await this.loadRows(related.path, true)).filter(
+              (r) => r[related.envColumn] === this.opts.env && r[related.match] === row[related.match],
+            ),
+          ).slice(0, related.max);
+          if (examples.length) {
+            context[related.name] =
+              examples.map((r) => related.columns.map((c) => r[c]).join(", ")).join(" | ") +
+              ` (${related.columns.join(", ")}; utvalg)`;
+          }
         }
         return this.add({
           category: category.id,
@@ -124,10 +140,15 @@ export class TestUserPool {
     return user;
   }
 
-  private async loadRows(path: string): Promise<Row[]> {
+  private async loadRows(path: string, local = false): Promise<Row[]> {
     const cached = this.rowsCache.get(path);
     if (cached) return cached;
     let rows: Row[] = [];
+    if (local) {
+      rows = parseCsv(await readFile(new URL(`../../${path}`, import.meta.url), "utf8"));
+      this.rowsCache.set(path, rows);
+      return rows;
+    }
     try {
       const res = await (this.opts.fetch ?? fetch)(`${this.opts.testdataBaseUrl}/${path}`, {
         signal: AbortSignal.timeout(15_000),
@@ -173,8 +194,28 @@ function col(row: Row, spec?: string): string | undefined {
 export function parseCsv(text: string): Row[] {
   const [header, ...lines] = text.trim().split(/\r?\n/);
   if (!header) return [];
-  const cols = header.split(",").map((c) => c.trim().replaceAll('"', ""));
+  const cols = splitCsvLine(header);
   return lines
     .filter((l) => l.trim())
-    .map((line) => Object.fromEntries(line.split(",").map((v, i) => [cols[i], v.trim().replaceAll('"', "")])));
+    .map((line) => Object.fromEntries(splitCsvLine(line).map((v, i) => [cols[i], v])));
+}
+
+// Komma inne i "sitert verdi" deler ikke feltet; "" er et escapet anførselstegn.
+function splitCsvLine(line: string): string[] {
+  const fields: string[] = [];
+  let field = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"' && quoted && line[i + 1] === '"') {
+      field += '"';
+      i++;
+    } else if (ch === '"') quoted = !quoted;
+    else if (ch === "," && !quoted) {
+      fields.push(field.trim());
+      field = "";
+    } else field += ch;
+  }
+  fields.push(field.trim());
+  return fields;
 }
