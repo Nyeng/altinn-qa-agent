@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseCsv, TestUserPool } from "../src/altinn/test-users.js";
+import { TestUserPool } from "../src/altinn/test-users.js";
 import { Redactor } from "../src/policy/redact.js";
 
 const pool = () => new TestUserPool({ env: "at23", testdataBaseUrl: "https://ikke-i-bruk", redactor: new Redactor() });
@@ -14,25 +14,20 @@ describe("klientvirksomheter (lokal testdata)", () => {
     );
   });
 
-  it("leser fila i repoet og velger bare rader for miljøet", async () => {
+  it("leser miljøets fil i repoet, én bruker per profil", async () => {
     const p = pool();
     const users = [];
     for (let i = 0; i < 5; i++) users.push(await p.pick("klientvirksomhet"));
-    assert.equal(new Set(users.map((u) => u.context.profil)).size, 5);
+    assert.equal(new Set(users.map((u) => u.context.profile)).size, 5);
     await assert.rejects(p.pick("klientvirksomhet"), /Ingen flere ubrukte/);
   });
 
-  it("gir noen av aktørens klienter som kontekst", async () => {
-    const user = await pool().pick("klientvirksomhet");
-    const orgnr = user.context.aktorOrgnr.split(" ")[0];
-    assert.ok(orgnr);
-    const clients = user.context.klienter.split(" | ");
-    assert.ok(clients.length >= 1 && clients.length <= 5);
-  });
-});
-
-describe("CSV", () => {
-  it("håndterer komma og anførselstegn i siterte verdier", () => {
-    assert.deepEqual(parseCsv('a,b,c\n1,"x, y","si ""hei"""\n'), [{ a: "1", b: "x, y", c: 'si "hei"' }]);
+  it("gir noen av aktørens klienter fra profilens fil som kontekst", async () => {
+    const p = pool();
+    for (let i = 0; i < 5; i++) {
+      const user = await p.pick("klientvirksomhet");
+      const clients = user.context.klienter.split(" | ");
+      assert.ok(clients.length >= 1 && clients.length <= 5, user.context.profile);
+    }
   });
 });
