@@ -195,28 +195,8 @@ function col(row: Row, spec?: string): string | undefined {
 export function parseCsv(text: string): Row[] {
   const [header, ...lines] = text.trim().split(/\r?\n/);
   if (!header) return [];
-  const cols = splitCsvLine(header);
+  const cols = header.split(",").map((c) => c.trim().replaceAll('"', ""));
   return lines
     .filter((l) => l.trim())
-    .map((line) => Object.fromEntries(splitCsvLine(line).map((v, i) => [cols[i], v])));
-}
-
-// Komma inne i "sitert verdi" deler ikke feltet; "" er et escapet anførselstegn.
-function splitCsvLine(line: string): string[] {
-  const fields: string[] = [];
-  let field = "";
-  let quoted = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"' && quoted && line[i + 1] === '"') {
-      field += '"';
-      i++;
-    } else if (ch === '"') quoted = !quoted;
-    else if (ch === "," && !quoted) {
-      fields.push(field.trim());
-      field = "";
-    } else field += ch;
-  }
-  fields.push(field.trim());
-  return fields;
+    .map((line) => Object.fromEntries(line.split(",").map((v, i) => [cols[i], v.trim().replaceAll('"', "")])));
 }

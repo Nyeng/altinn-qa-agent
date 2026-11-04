@@ -1,6 +1,7 @@
 // Fyller inn ID-ene API-tokens trenger for innloggingsbrukerne i testdata/klientdelegering/<miljø>.csv:
 // logger inn hver bruker med TestID (headless), leser userId/partyId fra tokenets claims, partyUuid fra /user/profile
-// og aktørens partyId/partyUuid (orgPartyId/orgUuid) fra aktørlista. Skriver bare ID-ene, aldri tokenet. Prod blokkeres.
+// og aktørens partyId/partyUuid (orgPartyId/orgUuid) fra aktørlista. Skriver bare ID-ene, aldri tokenet.
+// Bare testmiljøene: andre miljønavn avvises, og havner innloggingen på en annen vert enn testmiljøets, stopper den.
 // Bruker Playwright fra altinn-platform-validation-tests (~/Digdir/Repos/...), siden dette repoet ikke har det.
 //
 //   node scripts/hent-klient-ider.mjs [miljø ...]   (standard: at22 at23 tt02)
@@ -11,50 +12,37 @@ const require = createRequire(
 );
 const { chromium } = require("playwright");
 
-const envs = process.argv.slice(2).length ? process.argv.slice(2) : ["at22", "at23", "tt02"];
-const host = (env) => (env === "tt02" ? "https://am.ui.tt02.altinn.no" : `https://am.ui.${env}.altinn.cloud`);
-const isProd = (h) => (/(^|\.)altinn\.no$/.test(h) && !/tt02/.test(h)) || /^(www\.|login\.)?idporten\.no$/.test(h);
-
-// Komma inne i "sitert verdi" deler ikke feltet (beskrivelsene har komma).
-const split = (line) =>
-  line
-    .match(/("([^"]|"")*"|[^,]*)(,|$)/g)
-    .slice(0, -1)
-    .map((f) => f.replace(/,$/, ""));
-const unquote = (f) => (f.startsWith('"') ? f.slice(1, -1).replaceAll('""', '"') : f);
-const quote = (v) => (/[",\n]/.test(v) ? `"${v.replaceAll('"', '""')}"` : v);
+const HOSTS = {
+  at22: "am.ui.at22.altinn.cloud",
+  at23: "am.ui.at23.altinn.cloud",
+  tt02: "am.ui.tt02.altinn.no",
+};
+const envs = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(HOSTS);
+const unknown = envs.filter((env) => !HOSTS[env]);
+if (unknown.length) throw new Error(`Ukjent miljø: ${unknown.join(", ")}. Bare ${Object.keys(HOSTS).join(", ")}.`);
 
 const browser = await chromium.launch();
 for (const env of envs) {
+  const host = HOSTS[env];
   const path = `testdata/klientdelegering/${env}.csv`;
   const [header, ...lines] = readFileSync(path, "utf8").trim().split("\n");
-  const cols = split(header);
-  const rows = lines.map((l) => Object.fromEntries(split(l).map((f, i) => [cols[i], unquote(f)])));
+  const cols = header.split(",");
+  const rows = lines.map((l) => Object.fromEntries(l.split(",").map((v, i) => [cols[i], v])));
 
   for (const r of rows) {
     const ctx = await browser.newContext();
-    let prodHit;
-    await ctx.route("**/*", (route) => {
-      const h = new URL(route.request().url()).hostname;
-      if (isProd(h)) {
-        prodHit = h;
-        return route.abort();
-      }
-      return route.continue();
-    });
     const page = await ctx.newPage();
     try {
-      await page.goto(`${host(env)}/accessmanagement/ui/`);
+      await page.goto(`https://${host}/accessmanagement/ui/`);
       const testId = page.getByRole("link", { name: /TestID/i }).first();
       await testId.waitFor({ timeout: 45_000 });
       await testId.click();
       await page.locator('input[name="pid"]').fill(r.pid);
       await page.locator("#submit").click();
-      await page.waitForURL((u) => u.hostname.startsWith("am.ui."), { timeout: 60_000 });
-      if (prodHit) throw new Error(`prod-vert ${prodHit}`);
+      await page.waitForURL((u) => u.hostname === host, { timeout: 60_000 });
       const token = (await ctx.cookies()).find((c) => c.name === "AltinnStudioRuntime")?.value;
       const claims = token ? JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString()) : {};
-      const api = `${host(env)}/accessmanagement/api/v1/user`;
+      const api = `https://${host}/accessmanagement/api/v1/user`;
       const profile = await (await page.request.get(`${api}/profile`)).json();
       const actors = await (await page.request.get(`${api}/actorlist/old`)).json();
       const flat = (list) => list.flatMap((a) => [a, ...flat(a.subunits ?? [])]);
@@ -73,9 +61,6 @@ for (const env of envs) {
     }
     await ctx.close();
   }
-  writeFileSync(
-    path,
-    [cols.join(","), ...rows.map((r) => cols.map((c) => quote(r[c] ?? "")).join(","))].join("\n") + "\n",
-  );
+  writeFileSync(path, [cols.join(","), ...rows.map((r) => cols.map((c) => r[c]).join(","))].join("\n") + "\n");
 }
 await browser.close();

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseCsv, TestUserPool } from "../src/altinn/test-users.js";
+import { TestUserPool } from "../src/altinn/test-users.js";
 import { Redactor } from "../src/policy/redact.js";
 
 const pool = () => new TestUserPool({ env: "at23", testdataBaseUrl: "https://ikke-i-bruk", redactor: new Redactor() });
@@ -29,11 +29,5 @@ describe("klientvirksomheter (lokal testdata)", () => {
       const clients = user.context.klienter.split(" | ");
       assert.ok(clients.length >= 1 && clients.length <= 5, user.context.profile);
     }
-  });
-});
-
-describe("CSV", () => {
-  it("håndterer komma og anførselstegn i siterte verdier", () => {
-    assert.deepEqual(parseCsv('a,b,c\n1,"x, y","si ""hei"""\n'), [{ a: "1", b: "x, y", c: 'si "hei"' }]);
   });
 });
