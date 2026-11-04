@@ -19,7 +19,7 @@ Arbeidsmappe: repoet `altinn-qa-agent` (der denne skillen ligger). Kjør alle ko
    registrer det som ⚪ med «ikke deployet?», ikke som funn.
    Tom liste → skriv «Ingen nye frontend-endringer å teste.» og avslutt. Ikke gjør noe mer.
    **`retest: true`** betyr at kandidaten er testet før og står i `reports/gui/retest.txt`. Les den eksisterende
-   rapporten og test **bare ⚪-kravene** på nytt. Behold ✅/❌-linjene og funnene som de er, erstatt ⚪-linjene med
+   rapporten og test **bare ⚪-kravene** på nytt, pluss UU-kravet hvis rapporten mangler det. Behold ✅/❌-linjene og funnene som de er, erstatt ⚪-linjene med
    de nye resultatene, legg til eventuelle nye funn, og skriv rapporten tilbake til samme fil. Etter publisering:
    fjern nøkkelen fra `reports/gui/retest.txt`.
 2. **For hver kandidat:** følg arbeidsmåten og reglene i `.claude/skills/son-of-vegard-gui/SKILL.md` (les den),
@@ -33,6 +33,8 @@ Arbeidsmappe: repoet `altinn-qa-agent` (der denne skillen ligger). Kjør alle ko
    - **Publiser:** `node scripts/publish-gui.mjs <key>`. Lager eller oppdaterer issuen (statuslinje + én
      rapportkommentar) og laster opp skjermbildene. Feiler publiseringen, noter det i oppsummeringen - ikke prøv
      andre veier.
+   - **Universell utforming er alltid med:** hver kandidat får UU-kravet (steg 7 i `son-of-vegard-gui`) i tillegg
+     til akseptansekriteriene, også når kriteriene ikke nevner UU.
    - **Dekk alle akseptansekriterier.** Ingen fast handlingsgrense (lokalt abonnement, ikke API-kostnad): test til
      hvert krav er ✅/❌ eller har en konkret ⚪-årsak (manglende testdata, flagg av, ikke deployet), som i
      API-rapportene. «Budsjett» er ikke en gyldig årsak. Sikkerhetsnett mot at kjøringen henger: stopp kandidaten

@@ -70,7 +70,8 @@ Argumenter: en PR- eller Feature-lenke (altinn-access-management-frontend eller 
    - **«Lenking» / dyplenker:** test at sidens URL virker som lenke inn fra andre steder. Åpne URL-en i en ny
      nettleserkontekst før innlogging (havner du på riktig side etter innlogging og aktørvalg?), last siden på nytt,
      og bruk frem/tilbake.
-7. **Universell utforming (WCAG 2.1 A/AA)** av den nye eller endrede delen av siden, i hver tilstand den har
+7. **Universell utforming (WCAG 2.1 A/AA)**, alltid, også når kravene ikke nevner det, av den nye eller endrede
+   delen av siden, i hver tilstand den har
    (f.eks. tom, med data, feil, dialog åpen):
    - **Automatisk:** axe-core er lastet i alle sider. Kjør `browser_evaluate` med
      `() => window.snokenUu("<selektor for den nye delen>")`. Den gir regel, WCAG-kriterium, antall og eksempler.
