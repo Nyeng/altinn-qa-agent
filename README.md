@@ -57,6 +57,10 @@ Frontend (altinn-access-management-frontend) testes lokalt i Claude Code på ege
 Åpne Claude Code i dette repoet og kjør `/son-of-vegard-gui <PR-lenke> at23`. Nettleseren (Playwright MCP) er
 konfigurert i [`.mcp.json`](.mcp.json) med prod blokkert; testbrukere hentes med `npx tsx scripts/testuser.mts`.
 
+Testdata for klientdelegering (revisor, regnskapsfører, forretningsfører og egendefinerte klienter) ligger i
+[`testdata/klientdelegering`](testdata/klientdelegering), se
+[ADR 0001: Klientdata for funksjonell test](docs/adr/0001-klientdata-for-funksjonell-test.md).
+
 ## Sikkerhet
 
 - Kun testmiljøene at22, at23 og tt02.

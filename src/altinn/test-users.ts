@@ -107,10 +107,11 @@ export class TestUserPool {
         }
         const related = category.related;
         if (related && row[related.match]) {
+          const relatedPath = related.path
+            .replaceAll("{env}", this.opts.env)
+            .replace(/\{(\w+)\}/g, (_, column: string) => row[column] ?? "");
           const examples = this.shuffle(
-            (await this.loadRows(related.path, true)).filter(
-              (r) => r[related.envColumn] === this.opts.env && r[related.match] === row[related.match],
-            ),
+            (await this.loadRows(relatedPath, true)).filter((r) => r[related.match] === row[related.match]),
           ).slice(0, related.max);
           if (examples.length) {
             context[related.name] =

@@ -28,7 +28,8 @@ export type Category = {
   // Hvordan testdata som ikke ligger ferdig i datasettet, settes opp (vises i prompten).
   setup?: string;
   // Eksempelrader fra en tilknyttet lokal fil (f.eks. klientene til aktøren), lagt i konteksten som `name`.
-  related?: { name: string; path: string; envColumn: string; match: string; columns: string[]; max: number };
+  // {env} og {<kolonne>} i stien erstattes med miljøet og verdier fra brukerens rad.
+  related?: { name: string; path: string; match: string; columns: string[]; max: number };
 };
 
 const K6 = "K6/testdata";
@@ -116,39 +117,36 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: "klientvirksomhet",
-    name: "Klientvirksomhet (revisor/regnskapsfører/forretningsfører med mange klienter)",
+    name: "Klientvirksomhet (revisor/regnskapsfører/forretningsfører/egendefinerte klienter)",
     flow:
       "Daglig leder i en virksomhet med klientforhold fra Enhetsregisteret eller egendefinerte klienter. " +
       "Én bruker per profil og miljø.",
-    sources: [
-      { path: "testdata/klientdelegering/klientvirksomheter-alle.csv", envs: ALL, local: true, envColumn: "miljo" },
-    ],
+    sources: [{ path: "testdata/klientdelegering/{env}.csv", envs: ALL, local: true }],
     related: {
       name: "klienter",
-      path: "testdata/klientdelegering/klienter-alle.csv",
-      envColumn: "miljo",
-      match: "aktorOrgnr",
-      columns: ["klientOrgnr", "klientNavn", "klientType", "roller", "pakker"],
+      path: "testdata/klientdelegering/{profile}/{env}.csv",
+      match: "orgNo",
+      columns: ["clientOrgNo", "clientName", "clientType", "roles", "packages"],
       max: 5,
     },
-    pid: "innloggingPid",
-    userId: "innloggingUserId",
-    partyId: "innloggingPartyId",
-    partyUuid: "innloggingPartyUuid",
+    pid: "pid",
+    userId: "userId",
+    partyId: "partyId",
+    partyUuid: "partyUuid",
     context: {
-      profil: "profil",
-      innloggingNavn: "navn",
-      aktorOrgnr: "aktør (orgnr) å velge etter innlogging",
-      aktorNavn: "aktørens navn",
-      aktorPartyId: "aktørens partyId",
-      aktorPartyUuid: "aktørens partyUuid",
-      antallKlienter: "antall klienter",
-      beskrivelse: "beskrivelse",
+      profile: "profil",
+      name: "navn",
+      orgNo: "aktør (orgnr) å velge etter innlogging",
+      orgName: "aktørens navn",
+      orgPartyId: "aktørens partyId",
+      orgUuid: "aktørens partyUuid",
+      clientCount: "antall klienter aktøren har i miljøet",
+      description: "beskrivelse",
     },
     setup:
-      "Klientene til hver aktør står i testdata/klientdelegering/klienter-alle.csv, én rad per klient " +
-      "(miljo, profil, aktorOrgnr, klientOrgnr, klientNavn, klientType, roller, erOgEgendefinert, pakker). " +
-      "Filtrer på miljo og aktorOrgnr.",
+      "Et utvalg av klientene til hver aktør står i testdata/klientdelegering/<profil>/<miljø>.csv: én klient per " +
+      "kombinasjon av klienttype, roller og tilgangspakker (orgNo, clientOrgNo, clientName, clientType, roles, " +
+      "hasErRoleAndCustom, packages).",
   },
   {
     id: "klient-agent",

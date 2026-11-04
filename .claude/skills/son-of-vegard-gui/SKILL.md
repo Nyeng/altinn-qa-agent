@@ -41,8 +41,8 @@ Argumenter: en PR- eller Feature-lenke (altinn-access-management-frontend eller 
    `npx tsx scripts/testuser.mts hent <miljø> <kategori> [antall]`. Hent to brukere hvis du skal teste at én
    ikke ser en annens data.
    **Klientdelegering:** kategorien `klientvirksomhet` gir én innlogging per profil (revisor, regnskapsfører,
-   forretningsfører, egendefinert, revisor-jordbruk) med aktøren du skal velge. Klientene til hver aktør, med roller
-   og tilgangspakker, står i `testdata/klientdelegering/klienter-alle.csv` (filtrer på `miljo` og `aktorOrgnr`).
+   forretningsfører, egendefinert, revisor-jordbruk) med aktøren du skal velge. Et utvalg av klientene, én per
+   kombinasjon av klienttype, roller og tilgangspakker, står i `testdata/klientdelegering/<profil>/<miljø>.csv`.
 5. **Logg inn (TestID)** – samme flyt som Playwright-testene i altinn-platform-validation-tests
    (`pages/felles/innlogging.ts`, `aktorvelger.ts`, `cookiebanner.ts`):
    - Gå til `https://am.ui.<miljø>.altinn.cloud/accessmanagement/ui` (tt02: `https://am.ui.tt02.altinn.no/accessmanagement/ui`).
