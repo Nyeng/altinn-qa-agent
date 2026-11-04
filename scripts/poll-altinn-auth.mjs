@@ -15,7 +15,7 @@
 // 3. Maks SNOKEN_DAILY_MAX økter per dag totalt (resten venter til neste dag).
 //
 // Åpne issues er bare det som er til vurdering: rapporter med funn (label «funn»). Forespørsler som venter, kjører
-// eller er ferdige uten funn, er lukket, og oversikts-issuen («📋 Son of Vegard – status») viser dem.
+// eller er ferdige uten funn, er lukket.
 // Det som ikke skal kjøres (frontend-Features, Features med bare tester, PR-er bak frontend-flagg), får ingen issue.
 // PR-er bak backend-flagg venter til avkrysningsboksen for flagget er krysset av (se flags.mjs).
 //
@@ -45,8 +45,6 @@ const GIVE_UP_HOURS = 7 * 24; // merget, men aldri sett deployet
 const MAX_RUNS_PER_POLL = 3;
 const LABEL = "snoken";
 const WAITING = "snoken-venter";
-const OVERVIEW = "snoken-oversikt";
-const FINDINGS = "funn";
 const DRY_RUN = process.env.DRY_RUN === "true";
 const AUTO = process.env.SNOKEN_AUTO !== "false";
 const AUTO_ENV = process.env.SNOKEN_AUTO_ENV || "at22";
@@ -494,75 +492,6 @@ function startReady() {
   }
 }
 
-// ── 3. Oversikt ──────────────────────────────────────────────────────────────
-// Én åpen issue som viser det som er lukket fordi det ikke er til vurdering ennå: venter, kjører, ferdig uten funn.
-export function overviewBody(issues) {
-  const status = (i) => i.body?.match(/^\*\*Status:\*\* (.*)$/m)?.[1] ?? "";
-  const line = (i) => `- #${i.number} ${status(i)}`;
-  const has = (i, label) => i.labels.some((l) => l.name === label);
-  const requests = issues.filter((i) => !has(i, OVERVIEW));
-  const sections = [
-    ["🔎 Til vurdering (funn)", requests.filter((i) => i.state === "OPEN" && has(i, FINDINGS))],
-    ["▶️ Kjører", requests.filter((i) => status(i).startsWith("▶️"))],
-    ["🚩 Venter på feature-flagg", requests.filter((i) => has(i, WAITING) && status(i).startsWith("🚩"))],
-    ["⏳ Venter på merge eller deploy", requests.filter((i) => has(i, WAITING) && !status(i).startsWith("🚩"))],
-    [
-      "✔️ Ferdig (lukket, siste 15)",
-      requests.filter((i) => i.state === "CLOSED" && !has(i, WAITING) && /^(✅|🟡|⚪)/u.test(status(i))).slice(0, 15),
-    ],
-  ];
-  return [
-    "Oppdateres av pollingen. Åpne issues er bare rapporter med funn til vurdering. Resten er lukket og står her (også rapporter med funn du har vurdert og lukket).",
-    "Backend-flagg: kryss av i issuen når flagget er på i miljøet, så starter testen ved neste polling.",
-    ...sections.map(([title, list]) => `### ${title}\n${list.length ? list.map(line).join("\n") : "- Ingen"}`),
-  ].join("\n\n");
-}
-
-function updateOverview() {
-  const issues =
-    ghJson([
-      "issue",
-      "list",
-      "-R",
-      OWN_REPO,
-      "--label",
-      LABEL,
-      "--state",
-      "all",
-      "--limit",
-      "200",
-      "--json",
-      "number,state,labels,body",
-    ]) ?? [];
-  const body = overviewBody(issues);
-  const existing = issues.find((i) => i.labels.some((l) => l.name === OVERVIEW));
-  if (DRY_RUN) return log(`ville oppdatert oversikten:\n${body}`);
-  if (existing) {
-    if (existing.body !== body)
-      gh(["issue", "edit", String(existing.number), "-R", OWN_REPO, "--body-file", "-"], body);
-    if (existing.state !== "OPEN") gh(["issue", "reopen", String(existing.number), "-R", OWN_REPO]);
-    return;
-  }
-  const url = gh(
-    [
-      "issue",
-      "create",
-      "-R",
-      OWN_REPO,
-      "--title",
-      "📋 Son of Vegard – status",
-      "--label",
-      LABEL,
-      "--label",
-      OVERVIEW,
-      "--body-file",
-      "-",
-    ],
-    body,
-  );
-  gh(["issue", "pin", url.trim().split("/").pop(), "-R", OWN_REPO]);
-}
-
 // Kjøres som skript (ikke når readiness/deploymentStatus importeres i test).
 if (import.meta.url === `file://${process.argv[1]}`) {
   if (!DRY_RUN) {
@@ -578,12 +507,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       "Son of Vegard-forespørsel fra altinn-auth",
       "--force",
     ]);
-    for (const [name, color, description] of [
-      [OVERVIEW, "0e8a16", "Oversikt over Son of Vegard-forespørsler"],
-      [FINDINGS, "d93f0b", "Rapport med funn til vurdering"],
-    ]) {
-      gh(["label", "create", name, "-R", OWN_REPO, "--color", color, "--description", description, "--force"]);
-    }
     gh([
       "label",
       "create",
@@ -605,5 +528,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     registerCompletedFeatures(since);
   }
   startReady();
-  updateOverview();
 }
