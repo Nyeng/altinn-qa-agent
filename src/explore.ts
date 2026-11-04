@@ -8,7 +8,7 @@ import { runAgent, type AgentEvent } from "./agent/loop.js";
 import { systemPrompt } from "./agent/prompt.js";
 import { Session } from "./agent/session.js";
 import { loadConfig } from "./config.js";
-import { renderReport, runStatus } from "./report/render.js";
+import { newFindings, renderReport, runStatus } from "./report/render.js";
 import { createTools } from "./tools/index.js";
 
 const charterPath = process.argv.slice(2).find((a) => !a.startsWith("--"));
@@ -53,8 +53,8 @@ await writeFile(path.join("reports", name), report);
 // Fast filnavn så CI kan poste rapporten, og alle detaljer (dekning, hele HTTP-loggen) til artefakten.
 await writeFile(path.join("reports", "latest.md"), report);
 await writeFile(path.join("reports", "status.txt"), runStatus(result.checks));
-// Antall funn styrer om issuen står åpen (til vurdering) eller lukkes.
-await writeFile(path.join("reports", "findings.txt"), String(result.findings.length));
+// Antall nye funn (ikke kjent i altinn-auth) styrer om issuen står åpen til vurdering eller lukkes.
+await writeFile(path.join("reports", "findings.txt"), String(newFindings(result.findings)));
 await writeFile(
   path.join("reports", "session.json"),
   JSON.stringify({ env: config.env, model: config.model, ...result }, null, 2),

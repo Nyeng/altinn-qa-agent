@@ -55,7 +55,8 @@ export const reportFinding = defineTool({
   description:
     "Rapporter et reelt avvik som en utvikler skal kunne reprodusere. Kun faktiske feil med bevis - ikke " +
     "kosmetikk, stil eller spekulasjon. `title`: kort. `expected`/`actual`: korte fraser (f.eks. '201', '500 FormatException'). " +
-    "`calls`: kall-ID-ene (#) som reproduserer feilen, i rekkefølge - forespørsel og svar hentes automatisk fra loggen.",
+    "`calls`: kall-ID-ene (#) som reproduserer feilen, i rekkefølge - forespørsel og svar hentes automatisk fra loggen. " +
+    "Søk med known_issues først. `knownIssue`: nummeret på issuen i altinn-auth hvis feilen allerede er meldt, ellers null.",
   strict: true,
   input: z.strictObject({
     title: z.string(),
@@ -64,8 +65,9 @@ export const reportFinding = defineTool({
     expected: z.string(),
     actual: z.string(),
     calls: z.array(z.number().int()),
+    knownIssue: z.number().int().nullable(),
   }),
-  label: (i) => `🐞 ${i.title}`,
+  label: (i) => `🐞 ${i.title}${i.knownIssue ? ` (kjent: #${i.knownIssue})` : ""}`,
   run: (finding, s) => {
     if (finding.calls.length === 0) return { content: "Et funn må vise til minst ett kall (calls).", isError: true };
     const missing = missingCalls(finding.calls, s);

@@ -87,12 +87,14 @@ Argumenter: en PR- eller Feature-lenke (altinn-access-management-frontend eller 
 - ⚪ Ikke testet: <krav> – <kort hvorfor>
 
 **Funn**
-- 🐞 **<kort tittel>** (<alvorlighet>) – forventet <x>, faktisk <y>
+- 🐞 **<kort tittel>** (<alvorlighet>) – forventet <x>, faktisk <y>[ · **Kjent bug:** [altinn-auth <nr>](https://redirect.github.com/Altinn/altinn-auth/issues/<nr>)]
   Reproduser: 1) logg inn med TestID med pid <pid>, velg aktør <navn> 2) … 3) …  · skjermbilde: reports/gui/<fil>
 - (eller) Ingen
 ```
 
 - ✅ krever at du faktisk utførte flyten som traff den nye koden. Ellers ⚪.
+- Før hvert funn: søk etter kjente bugs med `gh search issues --repo Altinn/altinn-auth --repo Altinn/altinn-access-management-frontend <stikkord>`.
+  Er feilen meldt, legg til «Kjent bug:» med lenke. Bare nye funn holder issuen åpen. Opprett aldri issues i Altinn-repoene.
 - Ingen oppsummering, notater eller forslag utover dette.
 - Spør til slutt om rapporten skal postes som issue i `Nyeng/altinn-qa-agent` (skriv den til `reports/gui/<key>.md`, skjermbilder som `<key>-<navn>.png`, og kjør `node scripts/publish-gui.mjs <key>`)
   (`gh issue create -R Nyeng/altinn-qa-agent --label snoken --title "🕵️ GUI · <repo>#<nr> · <miljø>" --body-file …`).

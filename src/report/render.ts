@@ -8,6 +8,9 @@ import type { TestUser } from "../altinn/test-users.js";
 
 const ICON = { bestått: "✅", feilet: "❌", "ikke testet": "⚪" } as const;
 
+/** Funn som ikke er meldt i altinn-auth fra før - bare de holder issuen åpen til vurdering. */
+export const newFindings = (findings: AgentResult["findings"]) => findings.filter((f) => !f.knownIssue).length;
+
 /** Statuslinjen i issueteksten: skiller helt testet fra delvis og ikke testet. */
 export function runStatus(checks: AgentResult["checks"]): string {
   const untested = checks.filter((c) => c.result === "ikke testet").length;
@@ -36,7 +39,10 @@ export function renderReport(
     ? result.findings.map((f) => {
         const calls = f.calls.map((id) => byId.get(id)).filter((e): e is HttpLogEntry => Boolean(e));
         return [
-          `- 🐞 **${f.title}** (${f.severity}) – forventet ${f.expected}, faktisk ${f.actual}`,
+          `- 🐞 **${f.title}** (${f.severity}) – forventet ${f.expected}, faktisk ${f.actual}` +
+            (f.knownIssue
+              ? ` · **Kjent bug:** [altinn-auth ${f.knownIssue}](https://redirect.github.com/Altinn/altinn-auth/issues/${f.knownIssue})`
+              : ""),
           "  <details><summary>Reproduser</summary>",
           "",
           ...calls.flatMap((e) => reproduce(e)),

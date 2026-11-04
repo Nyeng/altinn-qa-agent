@@ -42,6 +42,8 @@ export type Finding = {
   expected: string;
   actual: string;
   calls: number[];
+  /** Nummeret på issuen i altinn-auth hvis feilen allerede er meldt. */
+  knownIssue: number | null;
 };
 
 export class Session {

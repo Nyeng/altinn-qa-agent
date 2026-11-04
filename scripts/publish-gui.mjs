@@ -138,6 +138,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
   upsertReport(issue, report);
   setStatus(issue, status(report, env, statSync(reportPath).mtime));
-  triage(issue, (report.match(/^- 🐞/gmu) ?? []).length);
+  // Bare nye funn holder issuen åpen: et funn merket «Kjent bug:» er allerede meldt i altinn-auth.
+  triage(issue, (report.match(/^- 🐞(?!.*Kjent bug:).*$/gmu) ?? []).length);
   console.log(`https://github.com/${REPO}/issues/${issue}`);
 }

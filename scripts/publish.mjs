@@ -4,7 +4,7 @@
 //
 // Bruk: node scripts/publish.mjs report <issue> <fil>    (oppdaterer/oppretter rapportkommentaren)
 //       node scripts/publish.mjs status <issue> <tekst>  (oppdaterer statuslinjen i issueteksten)
-//       node scripts/publish.mjs triage <issue> <antall funn>  (åpen med «funn», ellers lukket)
+//       node scripts/publish.mjs triage <issue> <antall funn>  (åpen med «mulig-bug», ellers lukket)
 // Leser GH_TOKEN og GITHUB_REPOSITORY fra miljøet.
 import { readFileSync } from "node:fs";
 import { gh } from "./altinn.mjs";
@@ -37,26 +37,26 @@ export function setStatus(issue, status) {
   if (next !== body) gh(["issue", "edit", String(issue), "-R", REPO, "--body-file", "-"], next);
 }
 
-/** Funn → åpen med label «funn» (til vurdering). Ingen funn → lukket uten label. */
+/** Funn → åpen med label «mulig-bug» (til vurdering). Ingen funn → lukket uten label. */
 export function triage(issue, findings) {
   const n = String(issue);
   gh([
     "label",
     "create",
-    "funn",
+    "mulig-bug",
     "-R",
     REPO,
     "--color",
     "d93f0b",
     "--description",
-    "Rapport med funn til vurdering",
+    "Nye funn som ikke er meldt i altinn-auth - må ses på manuelt",
     "--force",
   ]);
   if (Number(findings) > 0) {
-    gh(["issue", "edit", n, "-R", REPO, "--add-label", "funn"]);
+    gh(["issue", "edit", n, "-R", REPO, "--add-label", "mulig-bug"]);
     gh(["issue", "reopen", n, "-R", REPO]);
   } else {
-    gh(["issue", "edit", n, "-R", REPO, "--remove-label", "funn"]);
+    gh(["issue", "edit", n, "-R", REPO, "--remove-label", "mulig-bug"]);
     gh(["issue", "close", n, "-R", REPO]);
   }
 }

@@ -29,7 +29,8 @@ Arbeidsmåte:
    budsjettet. Avsluttende setning: hva som ble testet, og for det som ikke ble testet - hvorfor og hva som trengs.
 5. report_finding kun for faktiske feil som bryter et krav eller åpenbart korrekt oppførsel (feil statuskode,
    feil data, tilgangskontrollfeil, 500-feil, lekkasje av interne detaljer). Ikke kosmetikk, stil eller
-   konvensjonsavvik. Ikke rapporter noe du ikke har reprodusert med et kall.
+   konvensjonsavvik. Ikke rapporter noe du ikke har reprodusert med et kall. Søk med known_issues før du
+   rapporterer: er feilen allerede meldt i altinn-auth, oppgi nummeret i knownIssue.
 6. Er hovedeffekten ikke observerbar via API-ene (f.eks. et varsel som sendes), test det som KAN observeres i
    samme endring (flyten rundt, statuser, lagring) og skriv i "actual" hva som må verifiseres manuelt.
 7. Rydd opp testdata du har opprettet. Avslutt med én kort setning.

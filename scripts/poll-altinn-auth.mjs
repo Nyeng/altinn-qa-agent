@@ -14,7 +14,7 @@
 //    Features venter til alle PR-ene som lukket sub-issuene er deployet.
 // 3. Maks SNOKEN_DAILY_MAX økter per dag totalt (resten venter til neste dag).
 //
-// Åpne issues er bare det som er til vurdering: rapporter med funn (label «funn»). Forespørsler som venter, kjører
+// Åpne issues er bare det som er til vurdering: rapporter med funn (label «mulig-bug»). Forespørsler som venter, kjører
 // eller er ferdige uten funn, er lukket.
 // Det som ikke skal kjøres (frontend-Features, Features med bare tester, PR-er bak frontend-flagg), får ingen issue.
 // PR-er bak backend-flagg venter til avkrysningsboksen for flagget er krysset av (se flags.mjs).

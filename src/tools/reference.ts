@@ -16,3 +16,15 @@ export const apiReference = defineTool({
   label: (i) => `📚 api_reference ${i.query}`,
   run: async ({ query }, s) => ({ content: await s.knowledge.reference(query) }),
 });
+
+export const knownIssues = defineTool({
+  name: "known_issues",
+  countsAsStep: false,
+  description:
+    "Søk etter issues i Altinn/altinn-auth (åpne og lukkede) før du rapporterer et funn, så kjente bugs ikke meldes " +
+    "som nye. Søk med endepunkt, feilkode eller stikkord fra funnet, gjerne flere varianter (f.eks. " +
+    "'activitylog next', 'activitylog internal'). Finner du samme feil, oppgi nummeret i knownIssue i report_finding.",
+  input: z.strictObject({ query: z.string().describe("Stikkord, f.eks. endepunkt og symptom") }),
+  label: (i) => `🔎 known_issues ${i.query}`,
+  run: async ({ query }, s) => ({ content: await s.knowledge.knownIssues(query) }),
+});

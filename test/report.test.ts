@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { AgentResult } from "../src/agent/loop.js";
-import { renderReport, runStatus } from "../src/report/render.js";
+import { newFindings, renderReport, runStatus } from "../src/report/render.js";
 
 const result = {
   checks: [
@@ -100,5 +100,20 @@ describe("statuslinje", () => {
     assert.equal(runStatus([check("bestått"), check("ikke testet")]), "🟡 Delvis testet (1 av 2 krav)");
     assert.equal(runStatus([check("ikke testet")]), "⚪ Ikke testet");
     assert.equal(runStatus([]), "⚪ Ikke testet");
+  });
+});
+
+describe("kjente bugs", () => {
+  it("lenker til kjent bug og teller bare nye funn", () => {
+    const findings = [
+      { title: "a", severity: "lav", criterion: "k", expected: "e", actual: "x", calls: [], knownIssue: 4663 },
+      { title: "b", severity: "lav", criterion: "k", expected: "e", actual: "x", calls: [], knownIssue: null },
+    ] as AgentResult["findings"];
+    assert.equal(newFindings(findings), 1);
+    const md = renderReport({ ...result, findings }, { env: "at22", model: "m" });
+    assert.match(
+      md,
+      /\*\*Kjent bug:\*\* \[altinn-auth 4663\]\(https:\/\/redirect\.github\.com\/Altinn\/altinn-auth\/issues\/4663\)/,
+    );
   });
 });
