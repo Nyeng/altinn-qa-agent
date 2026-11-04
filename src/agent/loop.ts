@@ -49,6 +49,7 @@ export async function runAgent(opts: {
   let steps = 0;
   let wrapUpRequested = false;
   let wrapUpRounds = 0;
+  let nudged = false;
   let summary = "";
   let stopReason = "";
 
@@ -91,6 +92,15 @@ export async function runAgent(opts: {
     }
 
     if (response.stop_reason === "pause_turn") continue;
+    // Gir modellen seg med utestede krav og mer enn halve budsjettet igjen, bes den fortsette én gang.
+    // Prompten sier det samme, men modellen avslutter likevel ofte tidlig (aktivitetsloggen: 16 av 120 steg).
+    const giveUp = untestedEarly(response.stop_reason, steps, session, nudged || wrapUpRequested);
+    if (giveUp) {
+      nudged = true;
+      onEvent({ type: "text", text: `↩️ ${giveUp}` });
+      messages.push({ role: "user", content: giveUp });
+      continue;
+    }
     if (response.stop_reason !== "tool_use") break; // end_turn, max_tokens, refusal ...
     const isStep = (name: string) => tools.find((t) => t.name === name)?.countsAsStep !== false;
     const toolUses = response.content.filter((b) => b.type === "tool_use");
@@ -150,6 +160,18 @@ export async function runAgent(opts: {
     usage,
     costUsd: estimateCostUsd(config.model, usage),
   };
+}
+
+function untestedEarly(stop: string | null, steps: number, session: Session, done: boolean): string | undefined {
+  if (done || stop !== "end_turn" || steps >= session.config.maxSteps / 2) return undefined;
+  const untested = session.checks.filter((c) => c.result === "ikke testet");
+  if (!untested.length) return undefined;
+  return (
+    `Du har brukt ${steps} av ${session.config.maxSteps} steg, og ${untested.length} krav er "ikke testet": ` +
+    `${untested.map((c) => `"${c.criterion}"`).join(", ")}. Budsjettet er til for å bruke: prøv minst to andre ` +
+    `veier for hvert av dem (annen testbruker eller kategori, opprett egne testdata med POST og slett dem igjen, ` +
+    `api_reference). Registrer resultatet med record_check med nøyaktig samme criterion - det erstatter det gamle.`
+  );
 }
 
 function limitReached(steps: number, usage: Usage, config: Session["config"]): string | undefined {

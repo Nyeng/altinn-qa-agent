@@ -40,7 +40,12 @@ export class PvtKnowledge {
       .filter(Boolean);
     const areas = await this.areas();
     const matches = areas
-      .map((a) => ({ a, score: words.filter((w) => a.toLowerCase().includes(w)).length }))
+      // "activitylog" skal også finne "activity-log": sammenlign med og uten bindestrek.
+      .map((a) => {
+        const name = a.toLowerCase();
+        const joined = name.replaceAll("-", "");
+        return { a, score: words.filter((w) => name.includes(w) || joined.includes(w.replaceAll("-", ""))).length };
+      })
       .filter((m) => m.score > 0)
       .sort((x, y) => y.score - x.score || x.a.length - y.a.length)
       .map((m) => m.a);

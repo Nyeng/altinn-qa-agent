@@ -84,6 +84,8 @@ describe("kunnskap fra platform-validation-tests", () => {
     assert.deepEqual(await k.areas(), ["access-management/enduser/request/request"]);
     assert.match(await k.reference("access-management request"), /CreatePackageRequest/);
     assert.match(await k.reference("finnes ikke"), /Ingen PVT-klient matcher/);
+    // Uten bindestrek: "accessmanagement" finner "access-management" (som "activitylog" → "activity-log")
+    assert.match(await k.reference("accessmanagement"), /CreatePackageRequest/);
   });
 
   it("scopes: deler opp lister og fjerner admin og varselutsending", async () => {

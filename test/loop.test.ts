@@ -31,6 +31,7 @@ const toolUse = (id: string, name: string, input: unknown) => ({ type: "tool_use
 describe("agentløkka", () => {
   it("kjører verktøy, sender alle tool_results i én melding og stopper ved end_turn", async () => {
     const { session } = testSession();
+    session.config.maxSteps = 2; // halve budsjettet brukt - ingen påminnelse om utestede krav
     const { client, requests } = scriptedClient([
       {
         stop: "tool_use",
@@ -68,6 +69,34 @@ describe("agentløkka", () => {
     assert.equal(result.checks.length, 1);
     assert.equal(result.usage.input, 200);
     assert.equal(result.usage.cacheRead, 100);
+  });
+
+  it("ber modellen fortsette én gang når den gir seg tidlig med utestede krav", async () => {
+    const { session } = testSession();
+    session.config.maxSteps = 20;
+    const check = (result: string) =>
+      toolUse("r", "record_check", {
+        criterion: "Filtre ",
+        coverage: "c",
+        source: "utledet",
+        result,
+        expected: "e",
+        actual: "a",
+        calls: [],
+      });
+    const { client, requests } = scriptedClient([
+      { stop: "tool_use", content: [check("ikke testet")] },
+      { stop: "end_turn", content: [{ type: "text", text: "Gir meg." }] },
+      { stop: "tool_use", content: [check("ikke testet")] },
+      { stop: "end_turn", content: [{ type: "text", text: "Ferdig." }] },
+    ]);
+
+    const result = await runAgent({ client, session, tools: createTools(session), system: "s", charter: "c" });
+
+    assert.equal(requests.length, 4); // én påminnelse, ikke flere
+    assert.match(String(requests[2].messages.at(-1)!.content), /0 av 20 steg.*"Filtre "/s);
+    assert.equal(result.summary, "Ferdig.");
+    assert.equal(result.checks.length, 1); // samme krav erstattes, ikke dupliseres
   });
 
   it("ber om oppsummering når maks steg er nådd, og stopper hvis modellen fortsetter", async () => {

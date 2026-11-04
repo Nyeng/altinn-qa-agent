@@ -37,6 +37,13 @@ export const recordCheck = defineTool({
     if (check.result !== "ikke testet" && check.calls.length === 0) {
       return { content: "Et testet krav må vise til minst ett kall (calls).", isError: true };
     }
+    // Samme krav registrert på nytt (f.eks. etter et nytt forsøk) erstatter det gamle.
+    const key = (c: { criterion: string }) => c.criterion.trim().toLowerCase();
+    const existing = s.checks.findIndex((c) => key(c) === key(check));
+    if (existing >= 0) {
+      s.checks[existing] = check;
+      return { content: `Krav ${existing + 1} oppdatert.` };
+    }
     s.checks.push(check);
     return { content: `Krav ${s.checks.length} registrert.` };
   },
