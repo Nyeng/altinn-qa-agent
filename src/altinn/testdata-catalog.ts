@@ -132,7 +132,6 @@ export const CATEGORIES: Category[] = [
       max: 5,
     },
     pid: "innloggingPid",
-    // Trengs for API-tokens. Brukes når kolonnene finnes i fila.
     userId: "innloggingUserId",
     partyId: "innloggingPartyId",
     partyUuid: "innloggingPartyUuid",
@@ -141,6 +140,7 @@ export const CATEGORIES: Category[] = [
       innloggingNavn: "navn",
       aktorOrgnr: "aktør (orgnr) å velge etter innlogging",
       aktorNavn: "aktørens navn",
+      aktorPartyId: "aktørens partyId",
       aktorPartyUuid: "aktørens partyUuid",
       antallKlienter: "antall klienter",
       beskrivelse: "beskrivelse",
@@ -148,7 +148,7 @@ export const CATEGORIES: Category[] = [
     setup:
       "Klientene til hver aktør står i testdata/klientdelegering/klienter-alle.csv, én rad per klient " +
       "(miljo, profil, aktorOrgnr, klientOrgnr, klientNavn, klientType, roller, erOgEgendefinert, pakker). " +
-      "Filtrer på miljo og aktorOrgnr. Mangler brukeren userId, har tokenet bare pid: avvises et kall av den grunn, er kravet 'ikke testet', ikke et funn.",
+      "Filtrer på miljo og aktorOrgnr.",
   },
   {
     id: "klient-agent",
