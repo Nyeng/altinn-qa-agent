@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { z } from "zod";
-import { Redactor, SECRET_MARKER, TOKEN_MARKER } from "../src/policy/redact.js";
+import { pidMarker, Redactor, SECRET_MARKER, TOKEN_MARKER } from "../src/policy/redact.js";
 import { defineTool, runTool } from "../src/tools/define.js";
 import { testSession } from "./helpers.js";
 
@@ -59,5 +59,14 @@ describe("redigering av hemmeligheter", () => {
     });
     const out = await runTool([leaky], "lekk", {}, session);
     assert.equal(out.content, `svar: ${SECRET_MARKER} og ${TOKEN_MARKER}`);
+  });
+
+  it("fødselsnummer får en markør som sier hvem det tilhører", () => {
+    const r = new Redactor();
+    r.add("12345678901", pidMarker("bruker-A"));
+    assert.equal(
+      r.redact('{"personIdentifier":"12345678901"}'),
+      '{"personIdentifier":"[SON OF VEGARD: FØDSELSNUMMER TIL bruker-A]"}',
+    );
   });
 });

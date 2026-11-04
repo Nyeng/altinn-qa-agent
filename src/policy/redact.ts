@@ -6,6 +6,8 @@
 // må kunne se AT det skjedde - uten å se verdien.
 export const SECRET_MARKER = "[SON OF VEGARD: HEMMELIGHET FJERNET - API-ET RETURNERTE DENNE]";
 export const TOKEN_MARKER = "[SON OF VEGARD: MULIG TOKEN FJERNET - API-ET RETURNERTE ET TOKEN]";
+/** Fødselsnummer er ikke en hemmelighet på samme måte: brukerens eget i egne data er normalt, en annens kan være et funn. */
+export const pidMarker = (alias: string) => `[SON OF VEGARD: FØDSELSNUMMER TIL ${alias}]`;
 
 const MIN_SECRET_LENGTH = 6;
 
@@ -16,22 +18,22 @@ const TOKEN_PATTERNS = [
 ];
 
 export class Redactor {
-  private readonly secrets = new Set<string>();
+  private readonly secrets = new Map<string, string>(); // verdi → markør
 
   constructor(initial: Iterable<string | undefined> = []) {
     for (const s of initial) this.add(s);
   }
 
-  add(secret: string | undefined): void {
+  add(secret: string | undefined, marker = SECRET_MARKER): void {
     if (!secret || secret.length < MIN_SECRET_LENGTH) return;
-    for (const variant of encodings(secret)) this.secrets.add(variant);
+    for (const variant of encodings(secret)) this.secrets.set(variant, marker);
   }
 
   redact(text: string): string {
     // Lengste først, så en hemmelighet som er en del av en annen ikke etterlater biter av den lange.
-    const known = [...this.secrets].sort((a, b) => b.length - a.length);
+    const known = [...this.secrets].sort(([a], [b]) => b.length - a.length);
     let out = text;
-    for (const secret of known) out = out.replaceAll(secret, SECRET_MARKER);
+    for (const [secret, marker] of known) out = out.replaceAll(secret, marker);
     for (const pattern of TOKEN_PATTERNS) {
       out = out.replace(pattern, (match, scheme?: string) =>
         scheme && /^(bearer|basic)$/i.test(scheme) ? `${scheme} ${TOKEN_MARKER}` : TOKEN_MARKER,

@@ -3,7 +3,7 @@
 // Modellen ser alias, kategori, navn og ID-er - aldri fødselsnummer (pid registreres som hemmelighet).
 import { readFile } from "node:fs/promises";
 import type { EnvName } from "../policy/environments.js";
-import type { Redactor } from "../policy/redact.js";
+import { pidMarker, type Redactor } from "../policy/redact.js";
 import { categoriesFor, type Category } from "./testdata-catalog.js";
 
 export type TestUser = {
@@ -135,7 +135,7 @@ export class TestUserPool {
 
   private add(u: Omit<TestUser, "alias">): TestUser {
     const user = { ...u, alias: `bruker-${String.fromCharCode(65 + this.users.length)}` };
-    this.opts.redactor.add(user.pid);
+    this.opts.redactor.add(user.pid, pidMarker(user.alias));
     this.users.push(user);
     this.activeUser = user;
     return user;
