@@ -40,8 +40,10 @@ Arbeidsmappe: repoet `altinn-qa-agent` (der denne skillen ligger). Kjør alle ko
      API-rapportene. «Budsjett» er ikke en gyldig årsak. Sikkerhetsnett mot at kjøringen henger: stopp kandidaten
      etter ~200 nettleserhandlinger eller ~45 minutter, og skriv det som årsak på kravene som gjenstår.
 3. **Nettleser:** bruk **`playwright-headless`** fra `.mcp.json` (skjult nettleser, så det virker på låst
-   skjerm; tillatt-liste for testmiljøene, prod blokkert). Er den ikke tilgjengelig, bruk `playwright`, og
-   deretter appens innebygde nettleser - med nøyaktig de samme reglene. Aldri prod.
+   skjerm; tillatt-liste for testmiljøene, prod blokkert, axe-core lastet lokalt). Er den ikke tilgjengelig, bruk
+   `playwright` (samme oppsett, synlig vindu). Er ingen av dem tilgjengelig: stopp, og skriv det i oppsummeringen.
+   Bruk ikke appens innebygde nettleser (den mangler tillatt-listen), og last aldri skript fra CDN eller andre
+   eksterne kilder inn i siden.
 4. **Til slutt:** skriv en kort oppsummering: hvilke PR-er som ble testet, og antall ✅ / ❌ / ⚪ og funn per PR,
    med lenke til issuene. Ingenting annet.
 
