@@ -39,10 +39,14 @@ export function renderReport(
     ? result.findings.map((f) => {
         const calls = f.calls.map((id) => byId.get(id)).filter((e): e is HttpLogEntry => Boolean(e));
         return [
-          `- 🐞 **${f.title}** (${f.severity}) – forventet ${f.expected}, faktisk ${f.actual}` +
-            (f.knownIssue
-              ? ` · **Kjent bug:** [altinn-auth ${f.knownIssue}](https://redirect.github.com/Altinn/altinn-auth/issues/${f.knownIssue})`
-              : ""),
+          `- 🐞 **${f.title}** (${f.severity})`,
+          `  - **Forventet:** ${f.expected}`,
+          `  - **Faktisk:** ${f.actual}`,
+          ...(f.knownIssue
+            ? [
+                `  - **Kjent bug:** [altinn-auth ${f.knownIssue}](https://redirect.github.com/Altinn/altinn-auth/issues/${f.knownIssue})`,
+              ]
+            : []),
           "  <details><summary>Reproduser</summary>",
           "",
           ...calls.flatMap((e) => reproduce(e)),

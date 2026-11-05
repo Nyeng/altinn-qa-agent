@@ -101,8 +101,14 @@ Argumenter: en PR- eller Feature-lenke (altinn-access-management-frontend eller 
 - ⚪ Ikke testet: <krav> – <kort hvorfor>
 
 **Funn**
-- 🐞 **<kort tittel>** (<alvorlighet>) – forventet <x>, faktisk <y>[ · **Kjent bug:** [altinn-auth <nr>](https://redirect.github.com/Altinn/altinn-auth/issues/<nr>)]
-  Reproduser: 1) logg inn med TestID med pid <pid>, velg aktør <navn> 2) … 3) …  · skjermbilde: reports/gui/<fil>
+- 🐞 **<kort tittel>** (<alvorlighet>)
+  - **Forventet:** <x>
+  - **Faktisk:** <y>
+  - **Reproduser:**
+    1. Logg inn med TestID med pid `<pid>`, velg aktør <navn>
+    2. …
+  - **Skjermbilde:** reports/gui/<fil>
+  - **Kjent bug:** [altinn-auth <nr>](https://redirect.github.com/Altinn/altinn-auth/issues/<nr>) (bare hvis den finnes)
 - (eller) Ingen
 ```
 

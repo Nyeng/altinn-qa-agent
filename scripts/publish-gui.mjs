@@ -55,6 +55,14 @@ function status(report, env, testedAt) {
   return `✅ Testet ${date} i ${env}`;
 }
 
+// Funn som ikke er meldt fra før. «Kjent bug:» kan stå på 🐞-linjen eller i et underpunkt.
+export function newFindings(report) {
+  return report
+    .split(/^(?=- 🐞)/mu)
+    .filter((block) => block.startsWith("- 🐞"))
+    .filter((block) => !/Kjent bug:/.test(block.split(/\n(?=- )/u)[0])).length;
+}
+
 function source(kind, number) {
   if (kind === "amf") {
     const pr = ghJson(["pr", "view", number, "-R", "Altinn/altinn-access-management-frontend", "--json", "title,url"]);
@@ -139,6 +147,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   upsertReport(issue, report);
   setStatus(issue, status(report, env, statSync(reportPath).mtime));
   // Bare nye funn holder issuen åpen: et funn merket «Kjent bug:» er allerede meldt i altinn-auth.
-  triage(issue, (report.match(/^- 🐞(?!.*Kjent bug:).*$/gmu) ?? []).length);
+  triage(issue, newFindings(report));
   console.log(`https://github.com/${REPO}/issues/${issue}`);
 }
