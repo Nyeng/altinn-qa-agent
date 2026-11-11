@@ -17,6 +17,8 @@ src/
   mcp/
     server.ts           createMcpServer(session, tools): tynt lag over runTool - samme verktøy og sperrer
     instructions.ts     instruksjoner til MCP-klienten (kortere enn systemprompten, ingen stegbudsjett)
+    tools.ts            bare i MCP: session_status, reset_session, write_report
+    store.ts            økten på disk (reports/mcp/<miljø>), så den overlever omstart. Alt er maskert.
   config.ts             loadConfig(): all konfig, eksplisitt (ingen sideeffekter ved import)
   agent/
     loop.ts             runAgent(): stop_reason, tool_use → tool_result, caching, grenser. Klienten injiseres.

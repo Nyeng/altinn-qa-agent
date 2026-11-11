@@ -49,6 +49,41 @@ function format(value: unknown): string {
   return text.length > MAX_VALUE_CHARS ? `${text.slice(0, MAX_VALUE_CHARS)}… [${text.length} tegn]` : text;
 }
 
+const OUTLINE_MAX_KEYS = 30;
+const OUTLINE_MAX_DEPTH = 5;
+const OUTLINE_SHORT_STRING = 60;
+
+/**
+ * Strukturen i et stort JSON-svar i stedet for innholdet: nøkler, typer og antall elementer, med første element
+ * av hver liste som eksempel. Korte verdier vises, så id-er og statuser fortsatt er synlige.
+ * Returnerer undefined hvis bodyen ikke er JSON.
+ */
+export function outline(body: string): string | undefined {
+  let json: unknown;
+  try {
+    json = JSON.parse(body);
+  } catch {
+    return undefined;
+  }
+  return shape(json, 0);
+}
+
+function shape(value: unknown, depth: number): string {
+  if (value === null || typeof value === "boolean" || typeof value === "number") return JSON.stringify(value);
+  if (typeof value === "string") {
+    return value.length <= OUTLINE_SHORT_STRING ? JSON.stringify(value) : `<tekst, ${value.length} tegn>`;
+  }
+  if (depth >= OUTLINE_MAX_DEPTH) return Array.isArray(value) ? `[${value.length} elementer]` : "{…}";
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "[]";
+    return `[${value.length} elementer, første: ${shape(value[0], depth + 1)}]`;
+  }
+  const entries = Object.entries(value as Record<string, unknown>);
+  const shown = entries.slice(0, OUTLINE_MAX_KEYS).map(([k, v]) => `${k}: ${shape(v, depth + 1)}`);
+  if (entries.length > OUTLINE_MAX_KEYS) shown.push(`… ${entries.length - OUTLINE_MAX_KEYS} nøkler til`);
+  return `{ ${shown.join(", ")} }`;
+}
+
 /** Returnerer én linje per sti, eller undefined hvis bodyen ikke er JSON. */
 export function selectFields(body: string, paths: string[]): string | undefined {
   let json: unknown;
