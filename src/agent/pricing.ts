@@ -1,12 +1,13 @@
-// Estimert pris per økt. USD per million tokens (Anthropic-listepriser, oktober 2026).
+// Estimert pris per økt. USD per million tokens (Anthropic-listepriser, sjekket november 2026).
 // Cache-skriving koster 1,25 × input; cache-lesing er listet separat.
 // Dette er et estimat - fasiten er Usage-siden i Claude Console.
 
 export type Usage = { input: number; output: number; cacheRead: number; cacheWrite: number };
 
 const PRICES: Record<string, { input: number; output: number; cacheRead: number }> = {
-  "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.2 },
+  "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.1 },
   "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2 },
+  // Gjelder prompter på opptil 100k tokens (over det: 0.5 / 2.5). Agentens kontekst er langt under.
   "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheRead: 0.01 },
 };
 
