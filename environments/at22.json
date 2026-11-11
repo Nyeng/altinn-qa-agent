@@ -1,0 +1,85 @@
+{
+  "env": "at22",
+  "secrets": {
+    "REGISTER_SUBSCRIPTION_KEY": "$env:REGISTER_SUBSCRIPTION_KEY_AT22",
+    "AUTHORIZATION_SUBSCRIPTION_KEY": "$env:AUTHORIZATION_SUBSCRIPTION_KEY_AT22"
+  },
+  "testUsers": {
+    "A": {
+      "description": "Ber om tilgang (forespørsler). Daglig leder i MINKENDE SORGLØS TIGER AS.",
+      "pid": "28858397334",
+      "userId": "20990712",
+      "partyId": "50816006",
+      "partyUuid": "ced9acb3-c41c-41fd-a718-31c5694b4117",
+      "lastName": "NATTKREM",
+      "org": {
+        "orgNo": "214276372",
+        "partyUuid": "0c53f46c-8994-4223-a2be-d9d1f681dbdf",
+        "name": "MINKENDE SORGLØS TIGER AS",
+        "role": "daglig leder"
+      }
+    },
+    "B": {
+      "description": "Godkjenner forespørsler. Daglig leder i ANSVARSFULL INTEGRERT TIGER AS (hovedenhet; underenhet 214496542).",
+      "pid": "07915898801",
+      "userId": "21159682",
+      "partyId": "50250474",
+      "partyUuid": "f2adff1d-8499-4db2-a13a-e1011d7130c9",
+      "lastName": "SEIGMANN",
+      "org": {
+        "orgNo": "310095826",
+        "partyUuid": "8c9262b1-184e-4c1b-a55b-1bcd9cd5f5be",
+        "name": "ANSVARSFULL INTEGRERT TIGER AS",
+        "role": "daglig leder"
+      }
+    },
+    "C": {
+      "description": "Utenforstående i tilgangstester: har ingen forbindelse til A eller B.",
+      "pid": "13837398406",
+      "userId": "21103169",
+      "partyId": "50763206",
+      "partyUuid": "e6b5811c-5ce3-462c-9be9-5da06e98e6e9",
+      "lastName": "TORSDAG",
+      "org": {
+        "orgNo": "310157724",
+        "partyUuid": "58d8ac46-d8bf-436e-8505-9f7d4928b4d5"
+      }
+    }
+  },
+  "serviceOwner": {
+    "org": "ttd",
+    "orgNo": "991825827"
+  },
+  "resources": {
+    "ttd-dialogporten-dummy": {
+      "description": "Enkelttjeneste med tre delegerbare actions. Brukt i testene av forespørsler (altinn-auth 4603).",
+      "rightKeys": {
+        "read": "012b380596e14f88f6d4daf4719acaa0357c01a0dfebf7394e45a6dbdf71bda1e0",
+        "confirm": "0185afb08a01946bc9e09ab36872d59c04cce269c69bf1bffed852a633b9700b61",
+        "delete": "010f9f98ae780dbc02586e423ea4db5a9c8d9d45d2e43cd1c474557a77453e4d4b"
+      }
+    },
+    "ttd-dialogporten-performance-test-02": {
+      "description": "Annen ressurs, brukt til å teste en RightKey fra feil ressurs.",
+      "rightKeys": {
+        "read": "01efe6992f8df937a540112df9737c9dd43696d3ae7aa7bf31cb002dfc5f13907d"
+      }
+    }
+  },
+  "flags": {
+    "AccessManagement.Enduser.RequestV2Api": {
+      "on": true,
+      "checked": "2026-11-09",
+      "how": "v2-rutene under enduser/request svarte 200/400, ikke 404"
+    },
+    "AccessMgmt.Controller.RequestAssignment.Resource": {
+      "on": true,
+      "checked": "2026-11-09",
+      "how": "POST enduser/request/resource svarte 200"
+    }
+  },
+  "limits": {
+    "maxSteps": 30,
+    "allowDelete": false
+  }
+}

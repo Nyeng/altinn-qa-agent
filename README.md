@@ -55,6 +55,20 @@ cp .env.example .env   # ANTHROPIC_API_KEY, TOKEN_GENERATOR_USERNAME/PASSWORD
 npm run explore -- --env=at22 charters/01-autoriserte-parter-og-delegering.md
 ```
 
+## Miljøfiler
+
+Alt som hører til ett testmiljø ligger i [`environments/<miljø>.json`](environments), sjekket inn:
+
+- **Faste testbrukere** med navn og relasjoner (`use_test_user`), så tester kan gjentas og rapporter peker på de samme
+  brukerne.
+- **Testressurser** med RightKeys per action.
+- **Flaggstatus** med dato for når og hvordan den ble bekreftet.
+- **Grenser** for agenten (`maxSteps`, `allowDelete`).
+- **Hemmeligheter** bare som referanser (`"$env:REGISTER_SUBSCRIPTION_KEY_AT22"`). Verdier i fila avvises.
+
+Verdiene settes i `.env` lokalt (se [`.env.example`](.env.example)). K6-konfigen (`configs/<miljø>.json` lokalt eller
+secret `QA_CONFIG_<MILJØ>` i CI) leses som før og vinner, så CI trenger ingen endring. `env_info` viser innholdet.
+
 ## API-test lokalt i Claude Code (MCP)
 
 Agentens verktøy kan også brukes direkte fra Claude Code, uten agentløkka og uten Claude API-nøkkel. [`.mcp.json`](.mcp.json)

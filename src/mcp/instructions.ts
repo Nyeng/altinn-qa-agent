@@ -9,7 +9,9 @@ export function mcpInstructions(config: Config, categories: Category[]): string 
 Kun testmiljøet - verten er låst i koden, og ingenting når prod.
 
 Slik brukes de:
-- Velg bruker først: pick_test_user (sluttbruker etter brukerflyt), switch_user, eller use_service_owner (TTD).
+- Velg bruker først: use_test_user (faste brukere fra miljøfila), pick_test_user (tilfeldig sluttbruker etter
+  brukerflyt), switch_user, eller use_service_owner (TTD). env_info viser faste brukere, testressurser med RightKeys
+  og flaggstatus med dato.
   Token og API-nøkler legges på automatisk og vises aldri. Ikke send Authorization selv.
 - http_request gjør ett kall som aktiv bruker. Hvert svar starter med "Kall #N". Bruk "fields" når du vet
   hva du ser etter, "brief: true" for oppsettskall, og inspect_call for mer fra et svar du allerede har.

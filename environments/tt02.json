@@ -1,0 +1,15 @@
+{
+  "env": "tt02",
+  "secrets": {
+    "REGISTER_SUBSCRIPTION_KEY": "$env:REGISTER_SUBSCRIPTION_KEY_TT02",
+    "AUTHORIZATION_SUBSCRIPTION_KEY": "$env:AUTHORIZATION_SUBSCRIPTION_KEY_TT02"
+  },
+  "serviceOwner": {
+    "org": "ttd",
+    "orgNo": "991825827"
+  },
+  "limits": {
+    "maxSteps": 30,
+    "allowDelete": false
+  }
+}
