@@ -20,6 +20,7 @@ src/
     tools.ts            bare i MCP: session_status, reset_session, write_report
     store.ts            økten på disk (reports/mcp/<miljø>), så den overlever omstart. Alt er maskert.
   config.ts             loadConfig(): all konfig, eksplisitt (ingen sideeffekter ved import)
+  environment-file.ts   environments/<miljø>.json: faste brukere, ressurser, flagg, $env-referanser til hemmeligheter
   agent/
     loop.ts             runAgent(): stop_reason, tool_use → tool_result, caching, grenser. Klienten injiseres.
     session.ts          Session: ALL tilstand for én økt (brukere, tokens, logg, krav, funn)
@@ -29,6 +30,7 @@ src/
     define.ts           defineTool + register: zod-skjema → JSON-skjema, sentral validering og feilhåndtering
     http.ts             http_request, inspect_call
     users.ts            pick_test_user, switch_user, use_service_owner
+    environment.ts      use_test_user (faste brukere fra miljøfila), env_info
     reference.ts        api_reference: API-kunnskap fra altinn-platform-validation-tests
     results.ts          record_check, report_finding
     fields.ts           utvalg fra JSON-svar
@@ -47,6 +49,7 @@ test/                   node:test via tsx
 ## Regler som ikke skal brytes
 
 - **Sikkerhet håndheves i kode, aldri bare i prompten.** Nye regler går i `src/policy/` med tester.
+- **Ingen hemmelige verdier i `environments/`.** Bare `$env:NAVN`-referanser - skjemaet avviser alt annet.
 - **Hemmeligheter når aldri modellen.** Alt som returneres fra et verktøy går gjennom `session.redactor`.
 - **Kun testmiljøer.** Vert-allowlisten i `policy/environments.ts` skal ikke utvides til prod.
 - **PUT/PATCH/DELETE kun mot data opprettet i økten** (DELETE også for egne `snoken-*`-ressurser). Slik kan

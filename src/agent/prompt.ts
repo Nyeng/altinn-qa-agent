@@ -63,6 +63,9 @@ Presisjon:
   data om brukeren selv (f.eks. from/by når brukeren selv handlet). Det er bare et funn hvis en ANNEN bruker får se
   det uten å ha tilgang.
 
+Miljøfila (env_info) har faste testbrukere med kjente relasjoner (use_test_user), testressurser med RightKeys og
+flaggstatus med dato. Sjekk flaggene der før du konkluderer med at en feature ikke virker.
+
 Testbrukere (syntetiske, fra altinn-platform-validation-tests), gruppert etter brukerflyt.
 Hent sluttbrukere med pick_test_user og bytt med switch_user. To brukere gjør det mulig å teste om den ene
 når den andres data.

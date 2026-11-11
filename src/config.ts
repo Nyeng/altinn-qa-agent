@@ -1,10 +1,12 @@
 // All konfigurasjon leses ett sted, eksplisitt via loadConfig() - ingen sideeffekter ved import.
 //   Felles:     miljøvariabler (.env lokalt, secrets i CI)
-//   Per miljø:  én JSON i K6-formatet fra altinn-platform-validation-tests
-//               (QA_CONFIG_<MILJØ> i CI, ellers configs/<miljø>.json lokalt)
+//   Per miljø:  environments/<miljø>.json (sjekket inn, uten hemmeligheter - se environment-file.ts), og
+//               én JSON i K6-formatet fra altinn-platform-validation-tests
+//               (QA_CONFIG_<MILJØ> i CI, ellers configs/<miljø>.json lokalt). K6-konfigen vinner.
 // Hemmeligheter brukes kun av verktøyene - de sendes aldri til Claude.
 import { existsSync, readFileSync } from "node:fs";
 import { z } from "zod";
+import { loadEnvironment, type EnvironmentFile } from "./environment-file.js";
 import { assertAllowedHost, builtInApis, ENVIRONMENTS, isEnvName, type EnvName } from "./policy/environments.js";
 import { assertAllowedRepository } from "./policy/guard.js";
 
@@ -23,6 +25,8 @@ export type Config = {
   /** Kostnadstak per økt i USD (estimert). Cache-lesing koster lite og skal ikke stoppe en billig økt. */
   maxSessionUsd: number;
   env: EnvName;
+  /** Miljøfila uten hemmeligheter: faste testbrukere, ressurser og flagg. */
+  environment: EnvironmentFile;
   allowDelete: boolean;
   apis: Record<string, ApiTarget>;
   testUser: {
@@ -73,18 +77,27 @@ export function loadConfig(argv: string[] = process.argv, env: NodeJS.ProcessEnv
   assertAllowedRepository(env);
 
   const envName = parseEnvName(argv, env);
-  const file = readEnvFile(envName, env);
+  const environment = loadEnvironment(envName, env);
+  const file = readEnvFile(envName, env, environment.secrets, Object.keys(environment.file.secrets).length > 0);
+  // Bare det som mangler begge steder: K6-konfigen kan ha nøkkelen selv om variabelen ikke er satt.
+  const unset = Object.entries(environment.missing).filter(([key]) => !(file as Record<string, unknown>)[key]);
+  if (unset.length) {
+    console.warn(`ℹ️  Ikke satt i miljøet: ${unset.map(([, v]) => v).join(", ")} (fra environments/${envName}.json).`);
+  }
+  const limits = environment.file.limits;
   const apis = buildApis(envName, file);
 
   return {
     model: env.QA_MODEL || "claude-sonnet-5-5",
     effort: parseEffort(env.QA_EFFORT),
     // Per kjøring (QA_MAX_STEPS i miljøet) > miljøkonfigen > 25
-    maxSteps: Number(env.QA_MAX_STEPS || file.QA_MAX_STEPS || 30),
+    maxSteps: Number(env.QA_MAX_STEPS || file.QA_MAX_STEPS || limits.maxSteps || 30),
     // Tokentaket følger stegbudsjettet (15 000 per steg, minst 400 000) - den egentlige kostnadsgrensen.
-    maxSessionUsd: Number(env.QA_MAX_SESSION_USD || 0) || costCap(env, file),
+    maxSessionUsd: Number(env.QA_MAX_SESSION_USD || 0) || costCap(env, file, limits.maxSteps),
     env: envName,
-    allowDelete: String(file.QA_ALLOW_DELETE) === "true",
+    environment: environment.file,
+    allowDelete:
+      file.QA_ALLOW_DELETE === undefined ? limits.allowDelete === true : String(file.QA_ALLOW_DELETE) === "true",
     apis,
     testUser: {
       pid: file.TEST_USER_PID,
@@ -103,8 +116,8 @@ export function loadConfig(argv: string[] = process.argv, env: NodeJS.ProcessEnv
 }
 
 // Kostnadstaket følger stegbudsjettet: $0.02 per steg, minst $0.50 (30 steg → $0.60, 60 steg → $1.20).
-function costCap(env: NodeJS.ProcessEnv, file: EnvFile): number {
-  const steps = Number(env.QA_MAX_STEPS || file.QA_MAX_STEPS || 30);
+function costCap(env: NodeJS.ProcessEnv, file: EnvFile, fileSteps?: number): number {
+  const steps = Number(env.QA_MAX_STEPS || file.QA_MAX_STEPS || fileSteps || 30);
   return Math.max(0.5, steps * 0.02);
 }
 
@@ -123,14 +136,23 @@ function parseEffort(value = "low"): Effort {
   return value as Effort;
 }
 
-function readEnvFile(envName: EnvName, env: NodeJS.ProcessEnv): EnvFile {
+// `base` er hemmelighetene fra miljøfila. Verdier i K6-konfigen vinner.
+function readEnvFile(
+  envName: EnvName,
+  env: NodeJS.ProcessEnv,
+  base: Record<string, string> = {},
+  hasEnvironmentSecrets = false,
+): EnvFile {
   const varName = `QA_CONFIG_${envName.toUpperCase()}`;
   const path = `configs/${envName}.json`;
   const raw = env[varName] || (existsSync(path) ? readFileSync(path, "utf8") : undefined);
   if (!raw) {
     // Alt er valgfritt: uten konfig brukes standard-URL-er, men kall som krever subscription key feiler.
-    console.warn(`ℹ️  Ingen ${varName} / ${path} - kjører uten subscription keys.`);
-    return EnvFile.parse({});
+    // Miljøfila varsler selv om hemmeligheter som ikke er satt.
+    if (!hasEnvironmentSecrets) console.warn(`ℹ️  Ingen ${varName} / ${path} - kjører uten subscription keys.`);
+    const parsed = EnvFile.parse(base);
+    maskInGitHubActions(parsed, env);
+    return parsed;
   }
 
   let json: unknown;
@@ -139,7 +161,7 @@ function readEnvFile(envName: EnvName, env: NodeJS.ProcessEnv): EnvFile {
   } catch {
     throw new Error(`${varName}/${path} er ikke gyldig JSON`); // ikke vis innholdet - det er hemmelig
   }
-  const parsed = EnvFile.safeParse(json);
+  const parsed = EnvFile.safeParse({ ...base, ...(json as object) });
   if (!parsed.success) {
     const fields = parsed.error.issues.map((i) => i.path.join(".") || "(rot)").join(", ");
     throw new Error(`Ugyldig konfig for ${envName} - sjekk feltene: ${fields}`);

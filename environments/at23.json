@@ -1,0 +1,41 @@
+{
+  "env": "at23",
+  "secrets": {
+    "REGISTER_SUBSCRIPTION_KEY": "$env:REGISTER_SUBSCRIPTION_KEY_AT23",
+    "AUTHORIZATION_SUBSCRIPTION_KEY": "$env:AUTHORIZATION_SUBSCRIPTION_KEY_AT23"
+  },
+  "testUsers": {
+    "A": {
+      "description": "Ber om tilgang (forespørsler).",
+      "pid": "18826599975",
+      "userId": "20020597",
+      "partyId": "50691813",
+      "partyUuid": "138f4527-d5cf-44dc-8cc8-0059a9477a0c",
+      "lastName": "INNTEKT",
+      "org": {
+        "orgNo": "310027731",
+        "partyUuid": "6c36d3cd-b1f0-47ee-8d3a-e90499e860e6"
+      }
+    },
+    "B": {
+      "description": "Godkjenner forespørsler.",
+      "pid": "03854697438",
+      "userId": "20309024",
+      "partyId": "50499901",
+      "partyUuid": "40605786-9a32-499b-a1e7-250b2b06a7fb",
+      "lastName": "DUBLETT",
+      "org": {
+        "orgNo": "311055984",
+        "partyUuid": "b6fd88d7-8406-417d-90cf-d8b8e5c40002"
+      }
+    }
+  },
+  "serviceOwner": {
+    "org": "ttd",
+    "orgNo": "991825827"
+  },
+  "limits": {
+    "maxSteps": 30,
+    "allowDelete": false
+  }
+}

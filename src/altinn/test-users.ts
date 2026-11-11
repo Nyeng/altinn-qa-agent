@@ -2,6 +2,7 @@
 // brukerflyt (se testdata-catalog.ts). Samme kilde som K6 sin fetchTestData.
 // Modellen ser alias, kategori, navn og ID-er - aldri fødselsnummer (pid registreres som hemmelighet).
 import { readFile } from "node:fs/promises";
+import type { FixedUser } from "../environment-file.js";
 import type { EnvName } from "../policy/environments.js";
 import { pidMarker, type Redactor } from "../policy/redact.js";
 import { categoriesFor, type Category } from "./testdata-catalog.js";
@@ -74,6 +75,38 @@ export class TestUserPool {
   addConfigured(own: { pid?: string; userId?: string; partyId?: string; partyUuid?: string }): TestUser | undefined {
     if (!own.pid && !(own.userId && own.partyUuid)) return undefined;
     return this.add({ category: "egen (miljøkonfig)", ...own, context: {} });
+  }
+
+  /**
+   * Aktiver en fast testbruker fra miljøfila (environments/<miljø>.json). Aliaset er navnet i fila, og samme
+   * bruker hentes bare én gang per økt - andre gang blir den bare aktiv.
+   */
+  useFixed(name: string, fixed: FixedUser): TestUser {
+    const existing = this.users.find((u) => u.alias === name);
+    if (existing) {
+      this.activeUser = existing;
+      return existing;
+    }
+    const context: Record<string, string> = { beskrivelse: fixed.description };
+    if (fixed.lastName) context.lastName = `${fixed.lastName} (etternavn)`;
+    if (fixed.org) {
+      context.orgNo = `${fixed.org.orgNo} (tilknyttet virksomhet (orgnr))`;
+      if (fixed.org.partyUuid) context.orgUuid = `${fixed.org.partyUuid} (virksomhetens partyUuid)`;
+      if (fixed.org.name) context.orgName = `${fixed.org.name} (virksomhetens navn)`;
+      if (fixed.org.role) context.orgRole = `${fixed.org.role} (brukerens rolle i virksomheten)`;
+    }
+    return this.add(
+      {
+        category: "fast (miljøfil)",
+        pid: fixed.pid,
+        userId: fixed.userId,
+        partyId: fixed.partyId,
+        partyUuid: fixed.partyUuid,
+        fromCatalog: true,
+        context,
+      },
+      name,
+    );
   }
 
   /** Legg til og aktiver en tjenesteeier (virksomhetstoken). */
@@ -150,8 +183,10 @@ export class TestUserPool {
     this.activeUser = this.users.find((u) => u.alias === snapshot.active);
   }
 
-  private add(u: Omit<TestUser, "alias">): TestUser {
-    const user = { ...u, alias: `bruker-${String.fromCharCode(65 + this.users.length)}` };
+  private add(u: Omit<TestUser, "alias">, alias?: string): TestUser {
+    // Poolbrukere nummereres etter hvor mange poolbrukere som finnes, så faste brukere ikke forskyver bokstavene.
+    const pooled = this.users.filter((x) => x.alias.startsWith("bruker-")).length;
+    const user = { ...u, alias: alias ?? `bruker-${String.fromCharCode(65 + pooled)}` };
     this.opts.redactor.add(user.pid, pidMarker(user.alias));
     this.users.push(user);
     this.activeUser = user;
