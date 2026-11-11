@@ -6,12 +6,15 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { Session } from "./agent/session.js";
 import { loadConfig } from "./config.js";
 import { createMcpServer } from "./mcp/server.js";
-import { createTools } from "./tools/index.js";
+import { SessionStore } from "./mcp/store.js";
 
 const config = loadConfig();
-const session = new Session(config, { githubToken: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
-await session.init(); // scopes for tjenesteeier må være lest før verktøyskjemaene bygges
-const server = createMcpServer(session, createTools(session));
+const newSession = async () => {
+  const session = new Session(config, { githubToken: process.env.GH_TOKEN || process.env.GITHUB_TOKEN });
+  await session.init(); // scopes for tjenesteeier må være lest før verktøyskjemaene bygges
+  return session;
+};
 
+const server = createMcpServer(await newSession(), { newSession, store: SessionStore.forEnv(config.env) });
 await server.connect(new StdioServerTransport());
 console.error(`Son of Vegard MCP kjører mot ${config.env} (API-er: ${Object.keys(config.apis).join(", ")})`);

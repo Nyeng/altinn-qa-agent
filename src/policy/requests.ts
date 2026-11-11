@@ -116,7 +116,21 @@ export class OwnedData {
   list(): string[] {
     return [...this.ids];
   }
+
+  /** Til lagring mellom omstarter av MCP-serveren. */
+  toJSON(): OwnedDataSnapshot {
+    return { ids: [...this.ids], posts: this.posts.map((u) => u.href) };
+  }
+
+  static from(snapshot: OwnedDataSnapshot | undefined): OwnedData {
+    const owned = new OwnedData();
+    for (const id of snapshot?.ids ?? []) owned.ids.add(id);
+    for (const href of snapshot?.posts ?? []) owned.posts.push(new URL(href));
+    return owned;
+  }
 }
+
+export type OwnedDataSnapshot = { ids: string[]; posts: string[] };
 
 const sortedParams = (url: URL) =>
   [...url.searchParams]

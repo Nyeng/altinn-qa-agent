@@ -5,9 +5,11 @@ import type { HttpLogEntry, Session } from "../agent/session.js";
 import type { Config } from "../config.js";
 import { checkRequest, METHODS, resolveUrl } from "../policy/requests.js";
 import { defineTool, type Tool, type ToolOutput } from "./define.js";
-import { selectFields } from "./fields.js";
+import { outline, selectFields } from "./fields.js";
 
 const MAX_BODY_CHARS = 8000;
+/** Vellykkede JSON-svar over dette vises som struktur (outline), ikke innhold. Feilsvar vises alltid i sin helhet. */
+const OUTLINE_OVER_CHARS = 4000;
 const RESPONSE_EXCERPT_CHARS = 1500;
 const TIMEOUT_MS = 30_000;
 const SHOWN_HEADERS = ["content-type", "location", "www-authenticate"];
@@ -33,8 +35,10 @@ export function createHttpTools(config: Config): Tool[] {
       "Send en HTTP-forespørsel til et av API-ene du har tilgang til. `path` er relativ til API-ets base-URL " +
       '(f.eks. /accessmanagement/api/v1/enduser/authorizedparties for "platform"). ' +
       "Kallet gjøres som aktiv testbruker; autentisering og API-nøkler legges på automatisk - ikke send dem selv. " +
-      "Bruk `fields` når du vet hva du ser etter - da får du bare de verdiene. Feilsvar (4xx/5xx) returneres alltid " +
-      "i sin helhet. Hele svaret lagres; hent mer med inspect_call i stedet for å kalle på nytt.\n\n" +
+      "Bruk `fields` når du vet hva du ser etter - da får du bare de verdiene. `brief: true` gir bare statuslinjen " +
+      "(for oppsettskall der bare statuskoden betyr noe). Store vellykkede JSON-svar vises som struktur (nøkler, typer " +
+      "og antall) - hent verdiene med fields eller inspect_call. Feilsvar (4xx/5xx) returneres alltid i sin helhet. " +
+      "Hele svaret lagres; hent mer med inspect_call i stedet for å kalle på nytt.\n\n" +
       `Tilgjengelige API-er:\n${apiList}`,
     input: z.strictObject({
       api: z.enum(apiNames).default("platform").describe('Hvilket API (standard "platform")'),
@@ -54,6 +58,10 @@ export function createHttpTools(config: Config): Tool[] {
         .array(z.string())
         .optional()
         .describe(`Valgfritt: bare disse delene av JSON-svaret. ${FIELDS_HELP} Utelat for å se hele svaret.`),
+      brief: z
+        .boolean()
+        .optional()
+        .describe("true: bare statuslinje og Location (feilsvar vises likevel i sin helhet)"),
     }),
     label: (i) => `${i.api} ${i.method} ${i.path}${i.fields ? ` [${i.fields.join(", ")}]` : ""}  — ${i.why}`,
     run: (input, session) => sendRequest(input, session),
@@ -64,7 +72,8 @@ export function createHttpTools(config: Config): Tool[] {
     description:
       "Send SAMME forespørsel N ganger samtidig (2-10) - for race conditions, samtidighet, idempotens og " +
       "dobbeltinnsending (f.eks. to like delegeringer på en gang). Samme regler, autentisering og nøkler som " +
-      "http_request. Svaret viser statusfordelingen og hvert kall (#ID), så du kan sjekke: ingen 500, riktig " +
+      "http_request. Svaret viser statusfordelingen, antall ulike svar, hele svaret for kall som feilet og ett " +
+      "eksempel på et vellykket svar (resten med inspect_call), så du kan sjekke: ingen 500, riktig " +
       "antall opprettet (verifiser med GET etterpå), og at taperne får et ryddig svar. Bruk bare når samtidighet " +
       "er det som testes.",
     input: z.strictObject({
@@ -117,6 +126,7 @@ type HttpInput = {
   file?: FileUpload;
   why: string;
   fields?: string[];
+  brief?: boolean;
 };
 
 type Prepared = {
@@ -211,7 +221,8 @@ async function send(input: HttpInput, prep: Prepared, session: Session): Promise
     });
     const text = await res.text();
     log(res.status, text, res.headers.get("content-type") ?? undefined);
-    session.responseBodies.set(id, text);
+    // Lagres maskert: inspect_call og MCP-lageret skal aldri ha tokens eller nøkler liggende.
+    session.responseBodies.set(id, redact(text));
     if (input.method === "POST" && res.ok) {
       session.owned.rememberCreated(input.body, text, res.headers.get("location"));
       session.owned.rememberPost(prep.url);
@@ -224,24 +235,45 @@ async function send(input: HttpInput, prep: Prepared, session: Session): Promise
 }
 
 /** Svaret slik modellen ser det. Feilsvar vises alltid i sin helhet: stack traces og lekkasjer skal aldri filtreres bort. */
-function describe(sent: Sent, fields: string[] | undefined, maxChars = MAX_BODY_CHARS): string {
+function describe(
+  sent: Sent,
+  fields: string[] | undefined,
+  maxChars = MAX_BODY_CHARS,
+  opts: { brief?: boolean } = {},
+): string {
   if (!sent.res) return `Kall #${sent.id}: nettverksfeil: ${sent.error}`;
   const { res, text } = sent;
-  const selected = fields?.length && res.status < 400 ? selectFields(text, fields) : undefined;
-  const note = fields?.length && selected === undefined ? "(fields ignorert: feilsvar eller ikke JSON)\n" : "";
+  const ok = res.status < 400;
   const shownHeaders = SHOWN_HEADERS.map((h) => [h, res.headers.get(h)] as const)
     .filter(([, v]) => v)
     .map(([h, v]) => `${h}: ${v}`)
     .join("\n");
-  const body = selected ?? (text.length > maxChars ? truncate(text, maxChars) : text);
-  return `Kall #${sent.id}: HTTP ${res.status} ${res.statusText} (${sent.ms} ms, ${text.length} tegn)\n${shownHeaders}\n\n${note}${body}`;
+  const status = `Kall #${sent.id}: HTTP ${res.status} ${res.statusText} (${sent.ms} ms, ${text.length} tegn)`;
+  if (opts.brief && ok)
+    return `${status}${res.headers.get("location") ? `\nlocation: ${res.headers.get("location")}` : ""}`;
+
+  const selected = fields?.length && ok ? selectFields(text, fields) : undefined;
+  const note = fields?.length && selected === undefined ? "(fields ignorert: feilsvar eller ikke JSON)\n" : "";
+  // Store vellykkede svar: strukturen er nok til å velge fields. Feilsvar vises alltid i sin helhet (lekkasjer).
+  const shape = !selected && ok && text.length > OUTLINE_OVER_CHARS ? outline(text) : undefined;
+  const body =
+    selected ??
+    (shape
+      ? `Struktur (svaret er stort - hent verdier med fields eller inspect_call #${sent.id}):\n${truncate(shape, maxChars)}`
+      : text.length > maxChars
+        ? truncate(text, maxChars)
+        : text);
+  return `${status}\n${shownHeaders}\n\n${note}${body}`;
 }
 
 async function sendRequest(input: HttpInput, session: Session): Promise<ToolOutput> {
   const prep = prepare(input, session);
   if (typeof prep === "string") return { content: prep, isError: true };
   const sent = await send(input, prep, session);
-  return { content: session.redactor.redact(describe(sent, input.fields)), isError: sent.res ? undefined : true };
+  return {
+    content: session.redactor.redact(describe(sent, input.fields, MAX_BODY_CHARS, { brief: input.brief })),
+    isError: sent.res ? undefined : true,
+  };
 }
 
 const BURST_BODY_CHARS = 1500;
@@ -265,11 +297,14 @@ async function sendBurst(input: HttpInput & { count: number }, session: Session)
       .map(([status, ids]) => `${status} ×${ids.length} (${ids.map((i) => `#${i}`).join(", ")})`)
       .join(", ") +
     ` · ${distinctBodies} ulike svar`;
-  const details = all
-    .sort((a, b) => a.id - b.id)
-    .map((s) => describe(s, input.fields, BURST_BODY_CHARS))
-    .join("\n\n---\n\n");
-  return { content: session.redactor.redact(`${summary}\n\n${details}`) };
+  // Hele svaret bare for kall som feilet (4xx/5xx/nettverk), pluss ett vellykket som eksempel. Resten: inspect_call.
+  const sorted = all.sort((a, b) => a.id - b.id);
+  const firstOk = sorted.find((s) => s.res && s.res.status < 400);
+  const shown = sorted.filter((s) => s === firstOk || !s.res || s.res.status >= 400);
+  const hidden = sorted.length - shown.length;
+  const details = shown.map((s) => describe(s, input.fields, BURST_BODY_CHARS)).join("\n\n---\n\n");
+  const more = hidden ? `\n\n(${hidden} vellykkede svar til - se dem med inspect_call)` : "";
+  return { content: session.redactor.redact(`${summary}\n\n${details}${more}`) };
 }
 
 function truncate(text: string, maxChars = MAX_BODY_CHARS): string {

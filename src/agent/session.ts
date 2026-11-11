@@ -5,7 +5,8 @@ import { FALLBACK_SERVICE_OWNER_SCOPES, TestUserPool } from "../altinn/test-user
 import { TokenClient } from "../altinn/token-client.js";
 import type { Config } from "../config.js";
 import { Redactor } from "../policy/redact.js";
-import { OwnedData } from "../policy/requests.js";
+import { OwnedData, type OwnedDataSnapshot } from "../policy/requests.js";
+import type { TestUserPoolSnapshot } from "../altinn/test-users.js";
 
 /** Én HTTP-forespørsel. Loggen er fasiten i rapporten: krav og funn viser til kall-ID-er. Alt er renset. */
 export type HttpLogEntry = {
@@ -50,9 +51,9 @@ export class Session {
   readonly redactor: Redactor;
   readonly users: TestUserPool;
   readonly tokens: TokenClient;
-  readonly owned = new OwnedData();
+  owned = new OwnedData();
   readonly httpLog: HttpLogEntry[] = [];
-  /** Hele svaret per kall, så inspect_call kan hente mer uten nytt HTTP-kall. */
+  /** Hele svaret per kall (maskert), så inspect_call kan hente mer uten nytt HTTP-kall. */
   readonly responseBodies = new Map<number, string>();
   readonly checks: Check[] = [];
   readonly findings: Finding[] = [];
@@ -107,4 +108,43 @@ export class Session {
   hasCall(id: number): boolean {
     return this.httpLog.some((e) => e.id === id);
   }
+
+  /**
+   * Tilstanden som trengs for å fortsette økten etter en omstart av MCP-serveren. Loggen er allerede maskert.
+   * Svarene (responseBodies) er ikke med - de er store og lagres én gang per kall av MCP-lageret.
+   */
+  snapshot(): SessionSnapshot {
+    return {
+      env: this.config.env,
+      callSeq: this.callSeq,
+      httpLog: this.httpLog,
+      checks: this.checks,
+      findings: this.findings,
+      owned: this.owned.toJSON(),
+      users: this.users.snapshot(),
+    };
+  }
+
+  /** Fortsetter en lagret økt. Lagret tilstand fra et annet miljø avvises. */
+  restore(snapshot: SessionSnapshot): void {
+    if (snapshot.env !== this.config.env) {
+      throw new Error(`Lagret økt er for ${snapshot.env}, ikke ${this.config.env}`);
+    }
+    this.callSeq = snapshot.callSeq;
+    this.httpLog.push(...snapshot.httpLog);
+    this.checks.push(...snapshot.checks);
+    this.findings.push(...snapshot.findings);
+    this.owned = OwnedData.from(snapshot.owned);
+    this.users.restore(snapshot.users);
+  }
 }
+
+export type SessionSnapshot = {
+  env: string;
+  callSeq: number;
+  httpLog: HttpLogEntry[];
+  checks: Check[];
+  findings: Finding[];
+  owned: OwnedDataSnapshot;
+  users: TestUserPoolSnapshot;
+};

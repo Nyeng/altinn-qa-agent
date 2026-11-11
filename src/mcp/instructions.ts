@@ -12,14 +12,19 @@ Slik brukes de:
 - Velg bruker først: pick_test_user (sluttbruker etter brukerflyt), switch_user, eller use_service_owner (TTD).
   Token og API-nøkler legges på automatisk og vises aldri. Ikke send Authorization selv.
 - http_request gjør ett kall som aktiv bruker. Hvert svar starter med "Kall #N". Bruk "fields" når du vet
-  hva du ser etter, og inspect_call for mer fra et svar du allerede har, i stedet for å kalle på nytt.
+  hva du ser etter, "brief: true" for oppsettskall, og inspect_call for mer fra et svar du allerede har.
+  Store vellykkede svar vises som struktur - hent verdiene med fields eller inspect_call.
 - http_burst sender samme kall 2-10 ganger samtidig (race conditions, idempotens).
 - api_reference slår opp endepunkter og token-type i K6-klientene. known_issues søker i altinn-auth.
-- record_check og report_finding registrerer krav og funn med kall-ID-ene som bevis.
+- record_check og report_finding registrerer krav og funn med kall-ID-ene som bevis. write_report skriver
+  rapporten til en .md-fil under reports/.
+
+Økten lagres på disk (reports/mcp/<miljø>) og fortsetter etter omstart: kall-logg, brukere, krav, funn og hva
+økten har opprettet. Se den med session_status. Start en ny test med reset_session.
 
 Regler som håndheves i koden:
 - PUT/PATCH bare mot data opprettet med POST i denne serverøkten. DELETE i tillegg mot egne snoken-*-ressurser.
-  Delte testdata skal bare leses. Starter serveren på nytt, glemmes hva den har opprettet.
+  Delte testdata skal bare leses. Etter reset_session er data fra forrige økt ikke lenger dine.
 - Endepunkter som sender varsler eller e-post til ekte mottakere er sperret.
 
 Maskering i svarene:

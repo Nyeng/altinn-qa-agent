@@ -67,8 +67,13 @@ samme verktøyene, sperrene og maskeringen som agenten i GitHub Actions.
    den til i `enabledMcpjsonServers` i `.claude/settings.local.json`).
 3. Be Claude teste noe i miljøet, f.eks. «hent en bruker fra forespørsler og sjekk sent/count i at22».
 
-Token og nøkler holdes i serverprosessen og vises aldri i samtalen. Serveren husker hva den har opprettet bare så
-lenge den kjører, så PUT/PATCH/DELETE mot data fra før en omstart blir avvist.
+Token og nøkler holdes i serverprosessen og vises aldri i samtalen. Økten lagres maskert i `reports/mcp/<miljø>/`
+(gitignorert) og fortsetter etter omstart: kall-logg, svar, testbrukere, krav, funn og hva økten har opprettet.
+I tillegg til agentens verktøy har serveren `session_status`, `reset_session` (arkiverer og starter blankt) og
+`write_report` (rapport til en .md-fil under `reports/`, f.eks. for `scripts/publish-gui.mjs`).
+
+Sperrene er de samme som i GitHub Actions, men i Claude Code er de et rekkverk og ikke en sikkerhetsgrense: Claude Code
+har også et skall.
 
 ## GUI-test lokalt
 

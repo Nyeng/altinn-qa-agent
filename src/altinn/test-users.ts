@@ -34,6 +34,8 @@ export const FALLBACK_SERVICE_OWNER_SCOPES = [
 
 type Row = Record<string, string>;
 
+export type TestUserPoolSnapshot = { users: TestUser[]; active?: string; usedRows: string[] };
+
 export class TestUserPool {
   private readonly users: TestUser[] = [];
   private readonly rowsCache = new Map<string, Row[]>();
@@ -131,6 +133,21 @@ export class TestUserPool {
       }
     }
     throw new Error(`Ingen flere ubrukte testbrukere i "${categoryId}" for ${this.opts.env}`);
+  }
+
+  /** Til lagring mellom omstarter av MCP-serveren: brukerne, aktiv bruker og hvilke rader som er brukt. */
+  snapshot(): TestUserPoolSnapshot {
+    return { users: this.users, active: this.activeUser?.alias, usedRows: [...this.usedRows] };
+  }
+
+  /** Gjenoppretter brukere fra en lagret økt. Fødselsnumrene maskeres på nytt, med samme markør. */
+  restore(snapshot: TestUserPoolSnapshot): void {
+    for (const user of snapshot.users) {
+      this.opts.redactor.add(user.pid, pidMarker(user.alias));
+      this.users.push(user);
+    }
+    for (const key of snapshot.usedRows) this.usedRows.add(key);
+    this.activeUser = this.users.find((u) => u.alias === snapshot.active);
   }
 
   private add(u: Omit<TestUser, "alias">): TestUser {
