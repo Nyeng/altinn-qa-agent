@@ -88,6 +88,14 @@ describe("kunnskap fra platform-validation-tests", () => {
     assert.match(await k.reference("accessmanagement"), /CreatePackageRequest/);
   });
 
+  it("bare produktordet treffer: kort liste over klienter, ikke tre fulle oppsummeringer", async () => {
+    const k = new PvtKnowledge({ fetch: pvtFetch() });
+    const out = await k.reference("access-management context");
+    assert.match(out, /Ingen PVT-klient i access-management matcher "context"/);
+    assert.match(out, /access-management\/enduser\/request\/request/);
+    assert.doesNotMatch(out, /CreatePackageRequest/);
+  });
+
   it("scopes: deler opp lister og fjerner admin og varselutsending", async () => {
     const k = new PvtKnowledge({ fetch: pvtFetch() });
     assert.deepEqual(await k.allowedScopes(), [
