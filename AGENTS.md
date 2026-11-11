@@ -13,6 +13,10 @@ det er også et studieprosjekt for Claude Certified Developer – Foundations.
 ```
 src/
   explore.ts            CLI: les charter → kjør agenten → skriv rapport
+  mcp.ts                MCP-server over stdio for ett miljø (--env=at22), brukt fra Claude Code via .mcp.json
+  mcp/
+    server.ts           createMcpServer(session, tools): tynt lag over runTool - samme verktøy og sperrer
+    instructions.ts     instruksjoner til MCP-klienten (kortere enn systemprompten, ingen stegbudsjett)
   config.ts             loadConfig(): all konfig, eksplisitt (ingen sideeffekter ved import)
   agent/
     loop.ts             runAgent(): stop_reason, tool_use → tool_result, caching, grenser. Klienten injiseres.
@@ -50,6 +54,8 @@ test/                   node:test via tsx
   aldri driver fra kilden. Tjenesteeier-scopes begrenses til PVT-lista minus admin, deploy og varselutsending.
 - **Rapporten bygges fra HTTP-loggen**, ikke fra modellens tekst. Den skal være kort: Verifisert + Funn.
 - **Ingen modul-global tilstand.** Tilstand hører hjemme i `Session`; `fetch` og API-klienten injiseres.
+- **MCP-serveren og agentløkka deler verktøy.** Alt går gjennom `createTools` og `runTool`, så sperrer og maskering
+  gjelder likt. Ingen sikkerhetslogikk i `src/mcp/`, og ingenting skrives til stdout der (det er protokollkanalen).
 - **Systemprompt og verktøyliste skal være stabile** for en gitt konfig (ingen tidsstempler) - ellers brytes cachen.
 
 ## Konvensjoner

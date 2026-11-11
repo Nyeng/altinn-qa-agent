@@ -1,5 +1,17 @@
 {
   "mcpServers": {
+    "altinn-at22": {
+      "command": "npx",
+      "args": ["tsx", "--env-file-if-exists=.env", "src/mcp.ts", "--env=at22"]
+    },
+    "altinn-at23": {
+      "command": "npx",
+      "args": ["tsx", "--env-file-if-exists=.env", "src/mcp.ts", "--env=at23"]
+    },
+    "altinn-tt02": {
+      "command": "npx",
+      "args": ["tsx", "--env-file-if-exists=.env", "src/mcp.ts", "--env=tt02"]
+    },
     "playwright": {
       "command": "npx",
       "args": [

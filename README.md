@@ -55,6 +55,21 @@ cp .env.example .env   # ANTHROPIC_API_KEY, TOKEN_GENERATOR_USERNAME/PASSWORD
 npm run explore -- --env=at22 charters/01-autoriserte-parter-og-delegering.md
 ```
 
+## API-test lokalt i Claude Code (MCP)
+
+Agentens verktøy kan også brukes direkte fra Claude Code, uten agentløkka og uten Claude API-nøkkel. [`.mcp.json`](.mcp.json)
+har én server per miljø: `altinn-at22`, `altinn-at23` og `altinn-tt02`. Hver server er én økt mot ett miljø, med de
+samme verktøyene, sperrene og maskeringen som agenten i GitHub Actions.
+
+1. `npm install`, og legg `TOKEN_GENERATOR_USERNAME/PASSWORD` i `.env` (eller i miljøet). Subscription keys kommer fra
+   `configs/<miljø>.json` som før.
+2. Åpne Claude Code i dette repoet og godkjenn serveren for miljøet du skal teste når Claude Code spør (eller legg
+   den til i `enabledMcpjsonServers` i `.claude/settings.local.json`).
+3. Be Claude teste noe i miljøet, f.eks. «hent en bruker fra forespørsler og sjekk sent/count i at22».
+
+Token og nøkler holdes i serverprosessen og vises aldri i samtalen. Serveren husker hva den har opprettet bare så
+lenge den kjører, så PUT/PATCH/DELETE mot data fra før en omstart blir avvist.
+
 ## GUI-test lokalt
 
 Frontend (altinn-access-management-frontend) testes lokalt i Claude Code på eget abonnement – ikke via GitHub.
