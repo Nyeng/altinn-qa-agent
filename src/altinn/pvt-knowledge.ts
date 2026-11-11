@@ -40,6 +40,22 @@ export class PvtKnowledge {
       .split(/[\s/,]+/)
       .filter(Boolean);
     const areas = await this.areas();
+    // Ord som bare er et produktnavn ("access-management") gir ingen treff alene når spørringen også har et
+    // emneord ("context") - da ville tre tilfeldige klienter i produktet kommet med, og koste tokens i hvert steg.
+    const products = new Set(areas.map((a) => a.split("/")[0].toLowerCase()));
+    const topicWords = words.filter((w) => !products.has(w));
+    const matchesTopic = (a: string) => {
+      const name = a.toLowerCase();
+      return topicWords.some((w) => name.includes(w) || name.replaceAll("-", "").includes(w.replaceAll("-", "")));
+    };
+    if (topicWords.length && words.length > topicWords.length && !areas.some(matchesTopic)) {
+      const product = words.find((w) => products.has(w))!;
+      const inProduct = areas.filter((a) => a.toLowerCase().startsWith(`${product}/`));
+      return (
+        `Ingen PVT-klient i ${product} matcher "${topicWords.join(" ")}". Slå opp mer presist med et av disse: ` +
+        inProduct.join(", ")
+      );
+    }
     const matches = areas
       // "activitylog" skal også finne "activity-log": sammenlign med og uten bindestrek.
       .map((a) => {
